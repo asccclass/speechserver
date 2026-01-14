@@ -1,0 +1,10 @@
+*.swp
+*.x
+*.old
+*.tmp
+*.mp3
+*.mp4
+data/*
+libs/proxy
+libs/weather
+libs/ytdownload
