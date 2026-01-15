@@ -6,6 +6,7 @@
     <title>Speech Server Dashboard</title>
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -74,7 +75,7 @@
                     </div>
                 </div>
 
-                <form hx-post="/speaker" hx-swap="none" hx-on::after-request="this.reset()">
+                <form hx-post="/speaker" hx-ext="json-enc" hx-swap="none" hx-on::after-request="this.reset()">
                     <div class="form-group">
                         <label for="speaker-text">Broadcast Message</label>
                         <textarea 
@@ -103,7 +104,7 @@
                 </form>
                 
                 <div style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary);">
-                    <p>Uses HTMX to POST to <code>/speak</code>.</p>
+                    <p>Uses HTMX to POST JSON to <code>/speaker</code>.</p>
                 </div>
             </div>
         </div>

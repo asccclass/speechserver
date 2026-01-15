@@ -37,7 +37,7 @@ function connect() {
     const wsUrl = `${protocol}//${host}/listener?lang=${languages}`;
 
     console.log(`Connecting to ${wsUrl}`);
-    
+
     // UI Updates
     connectBtn.disabled = true;
     connectBtn.textContent = 'Connecting...';
@@ -45,17 +45,17 @@ function connect() {
     if (transcriptDiv.children.length === 0) {
         transcriptDiv.innerHTML = '<div id="connecting-msg" style="text-align: center; color: var(--text-secondary); padding-top: 2rem;">Connecting...</div>';
     } else {
-         appendSystemMessage('Reconnecting...');
+        appendSystemMessage('Reconnecting...');
     }
 
     try {
         socket = new WebSocket(wsUrl);
 
-        socket.onopen = function() {
+        socket.onopen = function () {
             console.log('WebSocket Connected');
             isConnected = true;
             updateStatus(true);
-            
+
             // Remove "Connecting..." placeholder if it exists
             const connectingMsg = document.getElementById('connecting-msg');
             if (connectingMsg) {
@@ -70,7 +70,7 @@ function connect() {
             startHeartbeat();
         };
 
-        socket.onclose = function(event) {
+        socket.onclose = function (event) {
             console.log('WebSocket Closed', event);
             cleanupConnection();
 
@@ -79,17 +79,17 @@ function connect() {
                 reconnectTimeout = setTimeout(connect, 3000);
             } else {
                 if (event.wasClean) {
-                     appendSystemMessage(`Disconnected cleanly.`);
+                    appendSystemMessage(`Disconnected cleanly.`);
                 }
             }
         };
 
-        socket.onerror = function(error) {
+        socket.onerror = function (error) {
             console.error('WebSocket Error', error);
             // On error, onclose is usually called shortly after
         };
 
-        socket.onmessage = function(event) {
+        socket.onmessage = function (event) {
             resetHeartbeat(); // Received message, so connection is alive
             try {
                 // Determine if message is text or binary
@@ -105,7 +105,7 @@ function connect() {
         console.error('Connection failed:', e);
         cleanupConnection();
         if (shouldReconnect) {
-             reconnectTimeout = setTimeout(connect, 3000);
+            reconnectTimeout = setTimeout(connect, 3000);
         }
     }
 }
@@ -166,10 +166,10 @@ function updateStatus(connected) {
         connectionStatus.classList.add('connected');
         connectionStatus.querySelector('span').textContent = 'Connected';
         connectBtn.textContent = 'Disconnect';
-        connectBtn.classList.remove('primary'); 
+        connectBtn.classList.remove('primary');
         connectBtn.style.backgroundColor = '#ef4444'; // Red for disconnect
         connectBtn.disabled = false;
-        
+
         // Disable checkboxes while connected
         document.querySelectorAll('input[name="lang"]').forEach(cb => cb.disabled = true);
     } else {
@@ -216,7 +216,7 @@ function appendSystemMessage(text) {
     msgDiv.style.borderLeftColor = 'var(--text-secondary)';
     msgDiv.style.color = 'var(--text-secondary)';
     msgDiv.innerHTML = `<i>${text}</i>`;
-    
+
     // Newest on top
     transcriptDiv.prepend(msgDiv);
 }
@@ -232,8 +232,8 @@ function escapeHtml(text) {
 }
 
 // Initialize timestamp for speaker form if needed
-document.body.addEventListener('htmx:configRequest', function(evt) {
-    if (evt.target.tagName === 'FORM' && evt.target.getAttribute('hx-post') === '/speak') {
+document.body.addEventListener('htmx:configRequest', function (evt) {
+    if (evt.target.tagName === 'FORM' && evt.target.getAttribute('hx-post') === '/speaker') {
         const tsInput = evt.target.querySelector('input[name="timestamp"]');
         if (tsInput) {
             tsInput.value = new Date().toISOString();
