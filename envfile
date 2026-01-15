@@ -1,4 +1,4 @@
-SystemName=APIGateway
+SystemName=SpeechGateway
 PORT=80
 
 DBMSType=MySQL
@@ -13,7 +13,7 @@ AllowMethods=POST;GET;DELETE;PUT
 
 DocumentRoot=www/html
 TemplateRoot=www/template/
-socketiologfile=logs/speech.log
+socketiologfile=www/logs/speech.log
 
 ServerURL=https://speech.justdrink.com.tw/
 
