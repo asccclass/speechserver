@@ -5,6 +5,10 @@ const transcriptDiv = document.getElementById('transcript');
 const connectionStatus = document.getElementById('connectionStatus');
 const connectBtn = document.getElementById('connectBtn');
 let isConnected = false;
+let shouldReconnect = false;
+let reconnectTimeout = null;
+let heartbeatInterval = null;
+const HEARTBEAT_TIME_MS = 30000; // 30 seconds
 
 function getSelectedLanguages() {
     const checkboxes = document.querySelectorAll('input[name="lang"]:checked');
@@ -16,11 +20,17 @@ function toggleConnection() {
     if (isConnected) {
         disconnect();
     } else {
+        shouldReconnect = true; // User explicitly wants to connect
         connect();
     }
 }
 
 function connect() {
+    // Prevent multiple connection attempts
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     const languages = getSelectedLanguages();
@@ -31,7 +41,12 @@ function connect() {
     // UI Updates
     connectBtn.disabled = true;
     connectBtn.textContent = 'Connecting...';
-    transcriptDiv.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding-top: 2rem;">Connecting...</div>';
+    // Only show connecting message if transcript is empty to avoid cluttering during reconnect
+    if (transcriptDiv.children.length === 0) {
+        transcriptDiv.innerHTML = '<div id="connecting-msg" style="text-align: center; color: var(--text-secondary); padding-top: 2rem;">Connecting...</div>';
+    } else {
+         appendSystemMessage('Reconnecting...');
+    }
 
     try {
         socket = new WebSocket(wsUrl);
@@ -40,19 +55,32 @@ function connect() {
             console.log('WebSocket Connected');
             isConnected = true;
             updateStatus(true);
-            transcriptDiv.innerHTML = ''; // Clear "Connecting..." message
+            
+            // Remove "Connecting..." placeholder if it exists
+            const connectingMsg = document.getElementById('connecting-msg');
+            if (connectingMsg) {
+                connectingMsg.remove();
+            }
+            // If transcript was just "Connecting...", clear it
+            if (transcriptDiv.innerHTML.includes('padding-top: 2rem;">Connecting...</div>')) {
+                transcriptDiv.innerHTML = '';
+            }
+
             appendSystemMessage('Connected to server.');
+            startHeartbeat();
         };
 
         socket.onclose = function(event) {
             console.log('WebSocket Closed', event);
-            isConnected = false;
-            updateStatus(false);
-            socket = null;
-            if (event.wasClean) {
-                 appendSystemMessage(`Disconnected cleanly.`);
+            cleanupConnection();
+
+            if (shouldReconnect) {
+                appendSystemMessage('Connection lost. Retrying in 3 seconds...');
+                reconnectTimeout = setTimeout(connect, 3000);
             } else {
-                 appendSystemMessage(`Connection lost.`);
+                if (event.wasClean) {
+                     appendSystemMessage(`Disconnected cleanly.`);
+                }
             }
         };
 
@@ -62,15 +90,9 @@ function connect() {
         };
 
         socket.onmessage = function(event) {
+            resetHeartbeat(); // Received message, so connection is alive
             try {
                 // Determine if message is text or binary
-                // The handler sends TextMessage, so it should be string
-                // But let's handle if it sends valid JSON string
-                // Note: The Go code sends base64 encoded JSON if it was using some specific library, 
-                // but checking handlers.go: c.Conn.WriteMessage(websocket.TextMessage, message)
-                // where message comes from json.Marshal(message)
-                
-                // However, the JSON from Go might be just the JSON object string.
                 const data = JSON.parse(event.data);
                 appendMessage(data);
             } catch (e) {
@@ -81,16 +103,63 @@ function connect() {
 
     } catch (e) {
         console.error('Connection failed:', e);
-        isConnected = false;
-        updateStatus(false);
+        cleanupConnection();
+        if (shouldReconnect) {
+             reconnectTimeout = setTimeout(connect, 3000);
+        }
     }
 }
 
 function disconnect() {
+    shouldReconnect = false; // User explicitly wants to disconnect
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+    }
+    stopHeartbeat();
     if (socket) {
         socket.close();
     }
 }
+
+function cleanupConnection() {
+    isConnected = false;
+    socket = null;
+    stopHeartbeat();
+    updateStatus(false);
+}
+
+// --- Heartbeat Logic ---
+
+function startHeartbeat() {
+    stopHeartbeat(); // Ensure no duplicates
+    // Set a timer to send a ping if no message received for HEARTBEAT_TIME_MS
+    // Actually, usually we send ping periodically.
+    // But requirement says: "If certain time no message received, please auto send heart beat"
+    // So we reset the timer on every message.
+    resetHeartbeat();
+}
+
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearTimeout(heartbeatInterval);
+        heartbeatInterval = null;
+    }
+}
+
+function resetHeartbeat() {
+    stopHeartbeat();
+    heartbeatInterval = setTimeout(() => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            console.log('Sending heartbeat...');
+            socket.send('ping'); // Send heartbeat
+            // Restart timer to keep checking
+            resetHeartbeat();
+        }
+    }, HEARTBEAT_TIME_MS);
+}
+
+// -----------------------
 
 function updateStatus(connected) {
     if (connected) {
@@ -133,10 +202,12 @@ function appendMessage(data) {
         <div class="message-content">${escapeHtml(data.text)}</div>
     `;
 
-    transcriptDiv.appendChild(msgDiv);
-    
-    // Auto-scroll to bottom
-    transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+    // Newest on top
+    transcriptDiv.prepend(msgDiv);
+    // Remove old messages if too many? (Optional optimization)
+    if (transcriptDiv.children.length > 200) {
+        transcriptDiv.lastElementChild.remove();
+    }
 }
 
 function appendSystemMessage(text) {
@@ -145,8 +216,9 @@ function appendSystemMessage(text) {
     msgDiv.style.borderLeftColor = 'var(--text-secondary)';
     msgDiv.style.color = 'var(--text-secondary)';
     msgDiv.innerHTML = `<i>${text}</i>`;
-    transcriptDiv.appendChild(msgDiv);
-    transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+    
+    // Newest on top
+    transcriptDiv.prepend(msgDiv);
 }
 
 function escapeHtml(text) {
@@ -159,15 +231,9 @@ function escapeHtml(text) {
         .replace(/'/g, "&#039;");
 }
 
-// Initialize timestamp for speaker form if needed (though backend might handle it better)
-// But let's just leave it empty and let backend handling if it wants, 
-// or fill it client side.
+// Initialize timestamp for speaker form if needed
 document.body.addEventListener('htmx:configRequest', function(evt) {
-    // Add timestamp to form data if not present?
-    // The form has hidden input named 'timestamp'.
-    // We can populate it before submit.
     if (evt.target.tagName === 'FORM' && evt.target.getAttribute('hx-post') === '/speak') {
-        // Find the input
         const tsInput = evt.target.querySelector('input[name="timestamp"]');
         if (tsInput) {
             tsInput.value = new Date().toISOString();
