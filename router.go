@@ -20,7 +20,7 @@ func NewRouter(srv *SherryServer.Server, documentRoot string) *http.ServeMux {
 	go hub.Run()
 
 	// API Endpoints
-	router.HandleFunc("/speak", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/speaker", func(w http.ResponseWriter, r *http.Request) {
 		HandleSpeak(hub, w, r)
 	})
 	router.HandleFunc("/listener", func(w http.ResponseWriter, r *http.Request) {

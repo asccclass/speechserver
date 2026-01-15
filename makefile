@@ -1,6 +1,6 @@
 APP?=app
-ImageName?=sherry/speechServer
-ContainerName?=speechSrv
+ImageName?=sherry/speechserver
+ContainerName?=speechsrv
 PORT?=11050
 DBServer?=MySQLx
 poolPath?=filepool

@@ -1,6 +1,7 @@
 package main
 
 import (
+   "fmt"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -35,7 +36,7 @@ func HandleSpeak(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 	// Basic validation
 	if payload.Text == "" {
-		// Just log, maybe keep alive?
+           fmt.Println("payload text is empty")
 	}
 
 	// Send to Hub
