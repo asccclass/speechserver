@@ -290,7 +290,7 @@ class RealtimeSpeechTranslator:
                 for segment in segments:
                     # no_speech_prob: Probability that the segment contains no speech
                     # avg_logprob: Average log probability (confidence) of the text
-                    if segment.no_speech_prob > 0.6: 
+                    if segment.no_speech_prob > 0.95: 
                         print(f"🙈 過濾雜音 (No Speech Prob: {segment.no_speech_prob:.2f}): {segment.text}")
                         continue
                     if segment.avg_logprob < -1.0: # Configurable threshold
