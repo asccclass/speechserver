@@ -43,79 +43,7 @@ from vad import SileroVAD
 
 from glossarymanager import GlossaryManager
 
-class SpeakerIdentifier:
-    def __init__(self):
-        print("載入 Speaker Identification 模型 (SpeechBrain)...")
-        try:
-            import torchaudio
-            # Patch torchaudio for compatibility with speechbrain
-            if not hasattr(torchaudio, 'list_audio_backends'):
-                torchaudio.list_audio_backends = lambda: ['soundfile']
-            
-            from speechbrain.inference.speakers import EncoderClassifier
-            import torch
-            import torch.nn.functional as F
-            self.F = F
-            self.torch = torch
-            # 使用 ECAPA-TDNN 模型
-            self.classifier = EncoderClassifier.from_hparams(
-                source="speechbrain/spkrec-ecapa-voxceleb",
-                savedir="pretrained_models/spkrec-ecapa-voxceleb",
-                run_opts={"device": "cuda" if torch.cuda.is_available() else "cpu"}
-            )
-            print("Speaker Identification 模型載入完成")
-            self.enabled = True
-        except Exception as e:
-            print(f"⚠️ Speaker Identification 模型載入失敗: {e}")
-            print("請確認已安裝 speechbrain: pip install speechbrain")
-            self.enabled = False
-
-        self.speakers = {} # {id: {'embedding': tensor, 'count': int}}
-        self.next_id = 0
-        self.similarity_threshold = 0.50 
-
-    def identify(self, audio_data):
-        if not self.enabled:
-            return "Speaker ?"
-            
-        try:
-            # audio_data: np.float32 array
-            tensor = self.torch.from_numpy(audio_data).unsqueeze(0) # (1, T)
-            if self.torch.cuda.is_available():
-                tensor = tensor.cuda()
-                
-            # 取得 Embedding
-            embeddings = self.classifier.encode_batch(tensor)
-            emb = embeddings.squeeze() 
-
-            best_score = -1.0
-            best_speaker = None
-
-            # 比對現有講者
-            for spk_id, data in self.speakers.items():
-                known_emb = data['embedding']
-                score = self.F.cosine_similarity(emb, known_emb, dim=0).item()
-                if score > best_score:
-                    best_score = score
-                    best_speaker = spk_id
-            
-            if best_score > self.similarity_threshold:
-                # Update Embedding
-                count = self.speakers[best_speaker]['count']
-                old_emb = self.speakers[best_speaker]['embedding']
-                new_emb = (old_emb * count + emb) / (count + 1)
-                self.speakers[best_speaker]['embedding'] = new_emb
-                self.speakers[best_speaker]['count'] = count + 1
-                return f"Speaker {best_speaker}"
-            else:
-                new_id = self.next_id
-                self.next_id += 1
-                self.speakers[new_id] = {'embedding': emb, 'count': 1}
-                return f"Speaker {new_id}"
-
-        except Exception as e:
-            print(f"辨識講者錯誤: {e}")
-            return "Speaker Err"
+from speakerid import SpeakerIdentifier
 
 class RealtimeSpeechTranslator:
     def __init__(self, 
@@ -276,26 +204,14 @@ class RealtimeSpeechTranslator:
         """語音辨識執行緒"""
         print("ASR 執行緒啟動")
         
-        # 完整句子的結尾標點符號
-        sentence_endings = {'。', '？', '！', '.', '?', '!'}
+from punmarks import PunctuationRestorer
+        self.sentence_endings = {'。', '？', '！', '.', '?', '!'}
         self.text_buffer = ""
         self.prev_text = ""  # 上一句確認的文字 (用作 Prompt context)
         self.last_buffer_update = time.time()
         
         # 嘗試載入標點復原模型
-        try:
-            from deepmultilingualpunctuation import PunctuationModel
-            print("載入標點復原模型 (BERT)...")
-            self.punct_model = PunctuationModel(model="oliverguhr/fullstop-punctuation-multilingual-sonar-base")
-            print("標點模型載入完成")
-            self.use_punct_model = True
-        except ImportError:
-            print("⚠️ 警告: 未安裝 deepmultilingualpunctuation，將無法自動加標點。")
-            print("請執行: pip install deepmultilingualpunctuation")
-            self.use_punct_model = False
-        except Exception as e:
-            print(f"⚠️ 標點模型載入失敗: {e}")
-            self.use_punct_model = False
+        self.punct_restorer = PunctuationRestorer()
 
         while self.running:
             try:
@@ -350,39 +266,25 @@ class RealtimeSpeechTranslator:
                     self.last_buffer_update = time.time()
                     
                     # 處理標點與斷句
-                    if self.use_punct_model:
-                        try:
-                            # 嘗試對目前緩衝區進行標點復原
-                            restored_text = self.punct_model.restore_punctuation(self.text_buffer)
-                            
-                            # 檢查是否構成完整句子 (結尾有標點)
-                            if (any(restored_text.strip().endswith(p) for p in sentence_endings) or 
-                                len(restored_text) > 100):
-                                
-                                final_text = restored_text.strip()
-                                timestamp = datetime.now().strftime("%H:%M:%S")
-                                print(f"\n✅ [{timestamp}] 完整語句 (Auto-Punct): {final_text}")
-                                
-                                self.text_queue.put({
-                                    'text': final_text,
-                                    'speaker': current_speaker
-                                })
-                                self.prev_text = final_text
-                                self.text_buffer = ""
-                            else:
-                                print(f"等待完整句子 (Restored: {restored_text})...")
-                        except Exception as e:
-                            print(f"標點復原錯誤: {e}")
-                            # Fallback logic if model fails
+                    restored_text = self.text_buffer
+                    if self.punct_restorer.use_punct_model:
+                        restored_text = self.punct_restorer.restore(self.text_buffer)
+                    
+                    is_complete = self.punct_restorer.is_complete_sentence(restored_text, self.sentence_endings)
+                    
+                    if is_complete:
+                        final_text = restored_text.strip()
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+                        print(f"\n✅ [{timestamp}] 完整語句 (Auto-Punct): {final_text}")
+                        
+                        self.text_queue.put({
+                            'text': final_text,
+                            'speaker': current_speaker
+                        })
+                        self.prev_text = final_text
+                        self.text_buffer = ""
                     else:
-                        # Fallback to old simple logic
-                        if (any(self.text_buffer.strip().endswith(p) for p in sentence_endings) or 
-                            len(self.text_buffer) > 100):
-                            self.text_queue.put({
-                                'text': self.text_buffer.strip(),
-                                'speaker': current_speaker
-                            })
-                            self.text_buffer = ""
+                        print(f"等待完整句子 (Restored: {restored_text})...")
 
                 else:
                     print("❌ 無法識別出文字")
@@ -391,11 +293,8 @@ class RealtimeSpeechTranslator:
                 # 超時機制：如果太久沒有新聲音(2秒)，且緩衝區有字，強制輸出
                 if self.text_buffer and (time.time() - self.last_buffer_update > 2.0):
                     
-                    if self.use_punct_model:
-                         try:
-                            final_text = self.punct_model.restore_punctuation(self.text_buffer)
-                         except:
-                            final_text = self.text_buffer
+                    if self.punct_restorer.use_punct_model:
+                        final_text = self.punct_restorer.restore(self.text_buffer)
                     else:
                         final_text = self.text_buffer
                         
