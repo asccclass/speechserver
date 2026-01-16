@@ -142,6 +142,20 @@
         .obs-mode .stats {
             display: none !important;
         }
+
+        /* UI 自動隱藏效果 */
+        .fade-out {
+            opacity: 0;
+            transition: opacity 1s ease-out;
+            pointer-events: none;
+            /* 隱藏後不可點擊 */
+        }
+
+        .fade-in {
+            opacity: 1;
+            transition: opacity 0.3s ease-in;
+            pointer-events: auto;
+        }
     </style>
 </head>
 
@@ -194,6 +208,9 @@
         let reconnectTimer = null;
         let clearTimer = null;
         let heartbeatTimer = null;
+        let uiHideTimer = null;
+        const UI_HIDE_DELAY_MS = 5000;
+
         let receivedCount = 0;
         let currentLanguage = 'zh';
 
@@ -230,6 +247,7 @@
                 console.log('WebSocket 連線成功');
                 updateStatus('connected');
                 startHeartbeat();
+                startUiHideTimer(); // 連線成功後開始倒數隱藏 UI
             };
 
             ws.onmessage = (event) => {
@@ -300,8 +318,17 @@
             originalEl.style.display = 'block';
 
             // 顯示翻譯
-            translationEl.textContent = data.text;  //data.translation;
-            translationEl.style.display = 'block';
+            // 只有當翻譯內容存在且不為空時才顯示
+            if (data.text && data.text.trim() !== '') {
+                // 注意：目前看起來翻譯跟原文是一樣的 (data.text)，使用者需求是 "若沒有翻譯字幕"
+                // 假設後端將來會區分 data.text (原文) 和 data.translation (翻譯)
+                // 目前先照舊邏輯，但加上簡單的判斷
+                translationEl.textContent = data.text; // data.translation;
+                translationEl.style.display = 'block';
+            } else {
+                translationEl.style.display = 'none';
+            }
+
 
             // 計算延遲
             const latency = Date.now() - new Date(data.timestamp).getTime();
@@ -319,6 +346,32 @@
             }, AUTO_CLEAR_TIMEOUT);
         }
 
+        // --- UI 自動隱藏邏輯 ---
+        function startUiHideTimer() {
+            if (uiHideTimer) clearTimeout(uiHideTimer);
+
+            // 確保先顯示
+            showUi();
+
+            uiHideTimer = setTimeout(() => {
+                hideUi();
+            }, UI_HIDE_DELAY_MS);
+        }
+
+        function showUi() {
+            statusEl.classList.remove('fade-out');
+            statusEl.classList.add('fade-in');
+            languageSelect.parentElement.classList.remove('fade-out');
+            languageSelect.parentElement.classList.add('fade-in');
+        }
+
+        function hideUi() {
+            statusEl.classList.remove('fade-in');
+            statusEl.classList.add('fade-out');
+            languageSelect.parentElement.classList.remove('fade-in');
+            languageSelect.parentElement.classList.add('fade-out');
+        }
+
         // 更新連線狀態
         function updateStatus(status) {
             statusEl.className = 'connection-status';
@@ -331,10 +384,14 @@
                 case 'disconnected':
                     statusEl.classList.add('status-disconnected');
                     statusEl.textContent = '● 已斷線';
+                    showUi(); // 斷線時顯示 UI
+                    if (uiHideTimer) clearTimeout(uiHideTimer);
                     break;
                 case 'connecting':
                     statusEl.classList.add('status-connecting');
                     statusEl.textContent = '● 連線中...';
+                    showUi(); // 連線中顯示 UI
+                    if (uiHideTimer) clearTimeout(uiHideTimer);
                     break;
             }
         }
