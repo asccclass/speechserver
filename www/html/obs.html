@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
     <title>直播即時字幕</title>
     <style>
         * {
@@ -64,6 +66,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -129,7 +132,8 @@
             font-size: 12px;
             color: #888;
             font-family: monospace;
-            display: none; /* 預設隱藏 */
+            display: none;
+            /* 預設隱藏 */
         }
 
         /* 隱藏控制項 (用於 OBS) */
@@ -140,6 +144,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- 連線狀態 -->
     <div class="connection-status status-connecting" id="connectionStatus">
@@ -165,7 +170,7 @@
 
     <!-- 統計資訊 -->
     <div class="stats" id="stats">
-        延遲: <span id="latency">--</span>ms | 
+        延遲: <span id="latency">--</span>ms |
         接收: <span id="received">0</span>
     </div>
 
@@ -173,7 +178,8 @@
 
         // 設定
         const AUTO_CLEAR_TIMEOUT = 8000; // 8秒後清除字幕
-        
+        const HEARTBEAT_TIME_MS = 30000; // 30秒心跳間隔
+
         // DOM 元素
         const statusEl = document.getElementById('connectionStatus');
         const originalEl = document.getElementById('subtitleOriginal');
@@ -182,14 +188,15 @@
         const statsEl = document.getElementById('stats');
         const latencyEl = document.getElementById('latency');
         const receivedEl = document.getElementById('received');
-        
+
         // 狀態
         let ws = null;
         let reconnectTimer = null;
         let clearTimer = null;
+        let heartbeatTimer = null;
         let receivedCount = 0;
         let currentLanguage = 'zh';
-        
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
         const WS_URL = `${protocol}//${host}/listener?lang=${currentLanguage}`;
@@ -198,31 +205,35 @@
         const urlParams = new URLSearchParams(window.location.search);
         const obsMode = urlParams.get('obs') === 'true';
         const showStats = urlParams.get('stats') === 'true';
-        
+
         if (obsMode) {
             document.body.classList.add('obs-mode');
         }
-        
+
         if (showStats) {
             statsEl.style.display = 'block';
         }
-        
+
         // 連線到 WebSocket
         function connect() {
             updateStatus('connecting');
+
+            if (ws) {
+                // 如果已有連線實例，確保先清理
+                ws.onclose = null;
+                ws.close();
+            }
+
             ws = new WebSocket(WS_URL);
+
             ws.onopen = () => {
                 console.log('WebSocket 連線成功');
                 updateStatus('connected');
-                
-                 /*// 發送語言選擇
-                ws.send(JSON.stringify({
-                    type: 'init',
-                    language: currentLanguage
-                })); */
+                startHeartbeat();
             };
-            
+
             ws.onmessage = (event) => {
+                resetHeartbeat();
                 try {
                     const data = JSON.parse(event.data);
                     handleMessage(data);
@@ -230,20 +241,46 @@
                     console.error('解析訊息錯誤:', e);
                 }
             };
-            
+
             ws.onerror = (error) => {
                 console.error('WebSocket 錯誤:', error);
             };
-            
+
             ws.onclose = () => {
                 console.log('WebSocket 連線關閉');
                 updateStatus('disconnected');
-                
+                stopHeartbeat();
+
                 // 5秒後重連
+                if (reconnectTimer) clearTimeout(reconnectTimer);
                 reconnectTimer = setTimeout(connect, 5000);
             };
         }
-        
+
+        // 心跳機制
+        function startHeartbeat() {
+            stopHeartbeat();
+            resetHeartbeat();
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearTimeout(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        function resetHeartbeat() {
+            stopHeartbeat();
+            heartbeatTimer = setTimeout(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    // console.log('發送心跳...'); 
+                    ws.send('ping');
+                    resetHeartbeat();
+                }
+            }, HEARTBEAT_TIME_MS);
+        }
+
         // 處理接收到的訊息
         function handleMessage(data) { // { rooms, user, text, timestamp, language }
             if (data.type === 'welcome') {
@@ -254,38 +291,38 @@
             receivedCount++;
             receivedEl.textContent = receivedCount;
         }
-        
+
         // 顯示字幕
         function displaySubtitle(data) {
             const startTime = Date.now();
             // 顯示原文
             originalEl.textContent = data.text;
             originalEl.style.display = 'block';
-            
+
             // 顯示翻譯
             translationEl.textContent = data.text;  //data.translation;
             translationEl.style.display = 'block';
-            
+
             // 計算延遲
             const latency = Date.now() - new Date(data.timestamp).getTime();
             latencyEl.textContent = latency;
-            
+
             // 清除之前的計時器
             if (clearTimer) {
                 clearTimeout(clearTimer);
             }
-            
+
             // 設定自動清除
             clearTimer = setTimeout(() => {
                 originalEl.style.display = 'none';
                 translationEl.style.display = 'none';
             }, AUTO_CLEAR_TIMEOUT);
         }
-        
+
         // 更新連線狀態
         function updateStatus(status) {
             statusEl.className = 'connection-status';
-            
+
             switch (status) {
                 case 'connected':
                     statusEl.classList.add('status-connected');
@@ -301,39 +338,39 @@
                     break;
             }
         }
-        
+
         // 語言切換
         languageSelect.addEventListener('change', (e) => {
             currentLanguage = e.target.value;
-            
+
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     type: 'change_language',
                     language: currentLanguage
                 }));
             }
-            
+
             console.log('切換語言:', currentLanguage);
         });
-        
+
         // 鍵盤快捷鍵
         document.addEventListener('keydown', (e) => {
             // S 鍵: 顯示/隱藏統計
             if (e.key === 's' || e.key === 'S') {
-                statsEl.style.display = 
+                statsEl.style.display =
                     statsEl.style.display === 'none' ? 'block' : 'none';
             }
-            
+
             // C 鍵: 清除字幕
             if (e.key === 'c' || e.key === 'C') {
                 originalEl.style.display = 'none';
                 translationEl.style.display = 'none';
             }
         });
-        
+
         // 初始化
         connect();
-        
+
         // 頁面卸載時關閉連線
         window.addEventListener('beforeunload', () => {
             if (ws) {
@@ -342,4 +379,5 @@
         });
     </script>
 </body>
+
 </html>
