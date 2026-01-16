@@ -33,7 +33,7 @@
 
         /* 原文字幕 */
         .subtitle-original {
-            background: transparent;
+            background: rgba(0, 0, 0, 0.85);
             color: #ffffff;
             padding: 20px 30px;
             border-radius: 10px;
@@ -48,7 +48,7 @@
 
         /* 翻譯字幕 */
         .subtitle-translation {
-            background: transparent;
+            background: rgba(30, 30, 30, 0.9);
             color: #4CAF50;
             padding: 18px 28px;
             border-radius: 8px;
@@ -182,7 +182,6 @@
 
         // DOM 元素
         const statusEl = document.getElementById('connectionStatus');
-        const languageSelectorEl = document.querySelector('.language-selector');
         const originalEl = document.getElementById('subtitleOriginal');
         const translationEl = document.getElementById('subtitleTranslation');
         const languageSelect = document.getElementById('languageSelect');
@@ -195,7 +194,6 @@
         let reconnectTimer = null;
         let clearTimer = null;
         let heartbeatTimer = null;
-        let uiHideTimer = null;
         let receivedCount = 0;
         let currentLanguage = 'zh';
 
@@ -302,12 +300,8 @@
             originalEl.style.display = 'block';
 
             // 顯示翻譯
-            if (data.translation) {
-                translationEl.textContent = data.translation;
-                translationEl.style.display = 'block';
-            } else {
-                translationEl.style.display = 'none';
-            }
+            translationEl.textContent = data.text;  //data.translation;
+            translationEl.style.display = 'block';
 
             // 計算延遲
             const latency = Date.now() - new Date(data.timestamp).getTime();
@@ -328,16 +322,11 @@
         // 更新連線狀態
         function updateStatus(status) {
             statusEl.className = 'connection-status';
-            showUI();
 
             switch (status) {
                 case 'connected':
                     statusEl.classList.add('status-connected');
                     statusEl.textContent = '● 已連線';
-
-                    // 5秒後隱藏
-                    if (uiHideTimer) clearTimeout(uiHideTimer);
-                    uiHideTimer = setTimeout(hideUI, 5000);
                     break;
                 case 'disconnected':
                     statusEl.classList.add('status-disconnected');
@@ -348,17 +337,6 @@
                     statusEl.textContent = '● 連線中...';
                     break;
             }
-        }
-
-        function hideUI() {
-            statusEl.style.display = 'none';
-            languageSelectorEl.style.display = 'none';
-        }
-
-        function showUI() {
-            if (uiHideTimer) clearTimeout(uiHideTimer);
-            statusEl.style.display = 'block';
-            languageSelectorEl.style.display = 'block';
         }
 
         // 語言切換
