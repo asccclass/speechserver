@@ -44,6 +44,7 @@ from vad import SileroVAD
 from glossarymanager import GlossaryManager
 
 from speakerid import SpeakerIdentifier
+from punmarks import PunctuationRestorer
 
 class RealtimeSpeechTranslator:
     def __init__(self, 
@@ -204,7 +205,7 @@ class RealtimeSpeechTranslator:
         """語音辨識執行緒"""
         print("ASR 執行緒啟動")
         
-from punmarks import PunctuationRestorer
+
         self.sentence_endings = {'。', '？', '！', '.', '?', '!'}
         self.text_buffer = ""
         self.prev_text = ""  # 上一句確認的文字 (用作 Prompt context)
