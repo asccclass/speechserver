@@ -1,0 +1,9 @@
+torch
+torchaudio
+numpy
+faster-whisper
+pyaudio
+transformers
+deepmultilingualpunctuation
+requests
+speechbrain

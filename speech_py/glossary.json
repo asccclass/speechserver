@@ -1,0 +1,22 @@
+{
+    "terms": [
+        "LLM",
+        "Transformer",
+        "PyTorch",
+        "CUDA",
+        "Nvidia",
+        "OpenAI",
+        "Anthropic",
+        "Gemini",
+        "RAG",
+        "Fine-tuning",
+        "Webex",
+        "slido"
+    ],
+    "corrections": {
+        "Pie Torch": "PyTorch",
+        "Chat GPT": "ChatGPT",
+        "Open AI": "OpenAI",
+        "Hugging Face": "HuggingFace"
+    }
+}
