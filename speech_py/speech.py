@@ -229,6 +229,7 @@ class RealtimeSpeechTranslator:
         self.text_buffer = ""
         self.prev_text = ""  # 上一句確認的文字 (用作 Prompt context)
         self.last_buffer_update = time.time()
+        self.buffer_speaker = None
         
         # 嘗試載入標點復原模型
         self.punct_restorer = PunctuationRestorer()
@@ -244,6 +245,30 @@ class RealtimeSpeechTranslator:
                 current_speaker = self.spk_id.identify(audio_data)
                 self.last_known_speaker = current_speaker
                 print(f"[{current_speaker}] 正在發言...")
+                
+                # Check for speaker change
+                if self.text_buffer and self.buffer_speaker and current_speaker != self.buffer_speaker:
+                    print(f"\n🔁 [Speaker Change] {self.buffer_speaker} -> {current_speaker}. Flushing buffer.")
+                    
+                    if self.punct_restorer.use_punct_model:
+                        final_text = self.punct_restorer.restore(self.text_buffer)
+                    else:
+                        final_text = self.text_buffer
+                        
+                    final_text = final_text.strip()
+                    if final_text:
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+                        print(f"✅ [{timestamp}] (Speaker Switch): {final_text}")
+                        self.text_queue.put({
+                            'text': final_text,
+                            'speaker': self.buffer_speaker
+                        })
+                        self.prev_text = final_text
+                    
+                    self.text_buffer = ""
+                
+                if not self.text_buffer:
+                    self.buffer_speaker = current_speaker
                 
                 # 使用 Whisper 辨識
                 # 加入 initial_prompt 提供上下文，減少幻覺並維持連貫性
