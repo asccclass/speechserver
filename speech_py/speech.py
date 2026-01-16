@@ -117,6 +117,11 @@ class RealtimeSpeechTranslator:
         self.min_speech_ms = 500      # 最短語音長度 (ms)
         self.max_silence_ms = 1200    # 語音中間允許的最長靜音 (ms) - Increased to allow pauses
         
+        # Dynamic Buffering Strategy
+        self.dynamic_silence_ms = 600   # Aggressive silence threshold for long segments (ms)
+        self.long_speech_ms = 15000     # Threshold to trigger aggressive completion (15s)
+        self.force_speech_ms = 40000    # Hard limit to force cut (40s)
+        
         # 翻譯緩存 (避免重複翻譯)
         self.translation_cache = {}
         
@@ -174,9 +179,23 @@ class RealtimeSpeechTranslator:
                     else:
                         silence_duration_ms += self.CHUNK_DURATION_MS
                         
-                    # 判斷是否斷句
-                    if silence_duration_ms > self.max_silence_ms:
-                        print(f"[語音結束] 錄製長度: {len(frames) * self.CHUNK_DURATION_MS / 1000:.2f}秒")
+                    # Calculate current length
+                    current_speech_len = len(frames) * self.CHUNK_DURATION_MS
+                    
+                    # Determine effective silence threshold based on length
+                    effective_silence_threshold = self.max_silence_ms
+                    if current_speech_len > self.long_speech_ms:
+                        effective_silence_threshold = self.dynamic_silence_ms
+                        
+                    # Check for cut conditions:
+                    # 1. Silence exceeded threshold
+                    # 2. Total length exceeded hard limit
+                    should_cut = (silence_duration_ms > effective_silence_threshold)
+                    force_cut = (current_speech_len > self.force_speech_ms)
+                    
+                    if should_cut or force_cut:
+                        reason = "Max silence" if should_cut else "Force cut"
+                        print(f"[語音結束] ({reason}) 錄製長度: {current_speech_len / 1000:.2f}秒")
                         triggered = False
                         
                         # 檢查總長度是否足夠
