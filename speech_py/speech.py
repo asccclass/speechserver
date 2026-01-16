@@ -276,7 +276,7 @@ class RealtimeSpeechTranslator:
                     if is_complete:
                         final_text = restored_text.strip()
                         timestamp = datetime.now().strftime("%H:%M:%S")
-                        print(f"\n✅ [{timestamp}] 完整語句 (Auto-Punct): {final_text}")
+                        print(f"\n✅ [{timestamp}] : {final_text}")
                         
                         self.text_queue.put({
                             'text': final_text,
