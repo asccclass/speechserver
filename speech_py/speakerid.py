@@ -8,7 +8,7 @@ class SpeakerIdentifier:
             if not hasattr(torchaudio, 'list_audio_backends'):
                 torchaudio.list_audio_backends = lambda: ['soundfile']
             
-            from speechbrain.inference.speakers import EncoderClassifier
+            from speechbrain.inference.classifiers import EncoderClassifier
             import torch
             import torch.nn.functional as F
             self.F = F
