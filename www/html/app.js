@@ -50,7 +50,6 @@ function connect() {
 
     try {
         socket = new WebSocket(wsUrl);
-
         socket.onopen = function () {
             console.log('WebSocket Connected');
             isConnected = true;
@@ -65,15 +64,13 @@ function connect() {
             if (transcriptDiv.innerHTML.includes('padding-top: 2rem;">Connecting...</div>')) {
                 transcriptDiv.innerHTML = '';
             }
-
-            appendSystemMessage('Connected to server.');
+            // appendSystemMessage('Connected to server.');
             startHeartbeat();
         };
 
         socket.onclose = function (event) {
             console.log('WebSocket Closed', event);
             cleanupConnection();
-
             if (shouldReconnect) {
                 appendSystemMessage('Connection lost. Retrying in 3 seconds...');
                 reconnectTimeout = setTimeout(connect, 3000);
