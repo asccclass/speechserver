@@ -9,3 +9,7 @@ libs/proxy
 libs/weather
 libs/ytdownload
 x
+z
+speech_py/__pycache__/
+speech_py/models/
+speech_py/pretrained_models/
