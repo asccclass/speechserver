@@ -13,3 +13,7 @@ z
 speech_py/__pycache__/
 speech_py/models/
 speech_py/pretrained_models/
+*.wav
+speech_py/list.py
+speech_py/record.py
+
