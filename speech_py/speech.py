@@ -437,6 +437,6 @@ if __name__ == "__main__":
         target_lang="en",
         whisper_model="medium", 
         use_gpu=True,
-        model_dir="/home/andyliu/realspeaker/models/whisper" # 可自行設定模型路徑
+        model_dir="/home/andyliu/speechserver/speech_py/models/whisper" # 可自行設定模型路徑
     )
     translator.start()

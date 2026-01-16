@@ -11,7 +11,8 @@
         "RAG",
         "Fine-tuning",
         "Webex",
-        "slido"
+	"院士",
+	"slido"
     ],
     "corrections": {
         "Pie Torch": "PyTorch",
