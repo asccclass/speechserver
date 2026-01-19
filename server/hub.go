@@ -13,7 +13,8 @@ type SpeakPayload struct {
 	Text      string `json:"text"`
 	Timestamp string `json:"timestamp"`
 	// Language is optional. If not provided, it might default or match all.
-	Language string `json:"language,omitempty"`
+	Language    string `json:"language,omitempty"`
+	Translation string `json:"translation,omitempty"`
 }
 
 // Client represents a connected WebSocket client
@@ -87,24 +88,24 @@ func (h *Hub) Run() {
 func (h *Hub) getAllClients() map[*Client]bool {
 	// Assumes caller holds lock or is safe
 	// Actually for safety, let's just make a shallow copy if we were doing this carefully
-	// But inside the select loop, we have exclusive access unless we used a mutex inside the loop, 
+	// But inside the select loop, we have exclusive access unless we used a mutex inside the loop,
 	// which we did. The mutex protects map access.
 	// Since we are inside the 'case', we are the only one modifying the map via Register/Unregister channels?
 	// No, Register/Unregister handlers run in this same goroutine.
 	// So we can iterate directly.
 	// Wait, we unlocked mu before the loop. So we need to copy.
-	
+
 	// Re-lock is needed? No, we are in the single Hub.Run goroutine.
 	// Register/Unregister are channels. The modification happens inside this loop.
 	// So h.Clients is safe to read here IF we didn't unlock.
 	// But I unlocked to allow history append? No, I unlocked after history append.
-	
+
 	// Let's refine locking.
 	// The Hub.Run is single threaded. The only way h.Clients changes is via the channels.
 	// So we don't strictly need a mutex for h.Clients *inside this loop* if only this loop touches it.
 	// But other reads (like stats) might need it.
 	// Let's copy for safety during iteration especially if send blocks (it sends to channel, so non-blocking usually, but 'default' handles it).
-	
+
 	copies := make(map[*Client]bool)
 	for k, v := range h.Clients {
 		copies[k] = v

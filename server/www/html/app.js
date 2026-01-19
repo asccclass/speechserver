@@ -199,6 +199,14 @@ function appendMessage(data) {
         <div class="message-content">${escapeHtml(data.text)}</div>
     `;
 
+    if (data.translation) {
+        msgDiv.innerHTML += `
+            <div class="message-translation" style="margin-top: 0.5rem; color: var(--accent-color); font-style: italic;">
+                ${escapeHtml(data.translation)}
+            </div>
+        `;
+    }
+
     // Newest on bottom
     transcriptDiv.appendChild(msgDiv);
     // Auto-scroll to bottom

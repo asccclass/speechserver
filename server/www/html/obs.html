@@ -324,12 +324,10 @@
             }
 
             // 顯示翻譯
+            // 顯示翻譯
             // 只有當翻譯內容存在且不為空時才顯示
-            if (data.text && data.text.trim() !== '') {
-                // 注意：目前看起來翻譯跟原文是一樣的 (data.text)，使用者需求是 "若沒有翻譯字幕"
-                // 假設後端將來會區分 data.text (原文) 和 data.translation (翻譯)
-                // 目前先照舊邏輯，但加上簡單的判斷
-                translationEl.textContent = data.text; // data.translation;
+            if (data.translation && data.translation.trim() !== '') {
+                translationEl.textContent = data.translation;
                 translationEl.style.display = 'block';
             } else {
                 translationEl.style.display = 'none';
