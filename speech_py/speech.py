@@ -123,6 +123,7 @@ class RealtimeSpeechTranslator:
         
         # 佇列和狀態
         self.audio_queue = queue.Queue()
+        self.fragment_queue = queue.Queue() # New queue for raw ASR fragments
         self.text_queue = queue.Queue()
         self.translation_queue = queue.Queue()
         self.running = False
@@ -211,7 +212,7 @@ class RealtimeSpeechTranslator:
                     
                     if should_cut or force_cut:
                         reason = "Max silence" if should_cut else "Force cut"
-                        print(f"[語音結束] ({reason}) 錄製長度: {current_speech_len / 1000:.2f}秒")
+                        # print(f"[語音結束] ({reason}) 錄製長度: {current_speech_len / 1000:.2f}秒")
                         triggered = False
                         
                         # 檢查總長度是否足夠
@@ -222,7 +223,8 @@ class RealtimeSpeechTranslator:
                             np_audio = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
                             self.audio_queue.put(np_audio)
                         else:
-                            print("(語音太短，忽略)")
+                            # print("(語音太短，忽略)")
+                            pass
                             
                         # 重置
                         frames = []
@@ -237,62 +239,26 @@ class RealtimeSpeechTranslator:
         p.terminate()
 
     def asr_thread(self):
-        """語音辨識執行緒"""
+        """語音辨識執行緒 (Producer)"""
         print("ASR 執行緒啟動")
         
-
-        self.sentence_endings = {'。', '？', '！', '.', '?', '!'}
-        self.text_buffer = ""
-        self.prev_text = ""  # 上一句確認的文字 (用作 Prompt context)
-        self.last_buffer_update = time.time()
-        self.buffer_speaker = None
-        
-        # 嘗試載入標點復原模型
-        self.punct_restorer = PunctuationRestorer()
+        # 僅用於此線程 Prompt Context 的簡單緩存，真正的句子緩衝移至 text_processing_thread
+        # 我們仍保留一些基本的 context 以優化 Whisper 識別準確度，但不處理完整的句子斷句 logic
+        self.prev_text_context = "" 
 
         while self.running:
             try:
                 # 從佇列取得音訊 (Blocking)
                 audio_data = self.audio_queue.get(timeout=1)
                 
-                print(f"正在辨識... (長度: {len(audio_data)/16000:.1f}s)")
-
                 # Identify Speaker
                 current_speaker = self.spk_id.identify(audio_data)
-                self.last_known_speaker = current_speaker
-                print(f"[{current_speaker}] 正在發言...")
-                
-                # Check for speaker change
-                if self.text_buffer and self.buffer_speaker and current_speaker != self.buffer_speaker:
-                    print(f"\n🔁 [Speaker Change] {self.buffer_speaker} -> {current_speaker}. Flushing buffer.")
-                    
-                    if self.punct_restorer.use_punct_model:
-                        final_text = self.punct_restorer.restore(self.text_buffer)
-                    else:
-                        final_text = self.text_buffer
-                        
-                    final_text = final_text.strip()
-                    if final_text:
-                        timestamp = datetime.now().strftime("%H:%M:%S")
-                        print(f"✅ [{timestamp}] (Speaker Switch): {final_text}")
-                        self.text_queue.put({
-                            'text': final_text,
-                            'speaker': self.buffer_speaker
-                        })
-                        self.prev_text = final_text
-                    
-                    self.text_buffer = ""
-                
-                if not self.text_buffer:
-                    self.buffer_speaker = current_speaker
                 
                 # 使用 Whisper 辨識
-                # 加入 initial_prompt 提供上下文，減少幻覺並維持連貫性
-                # 結合前文與專有名詞
+                # 加入 initial_prompt 提供上下文
                 glossary_prompt = self.glossary.get_prompt_context()
-                # 強制繁體中文 Prompt
                 force_tc_prompt = "以下是繁體中文的內容。"
-                prev_context = self.prev_text[-100:] if self.prev_text else ""
+                prev_context = self.prev_text_context[-100:] if self.prev_text_context else ""
                 prompt = f"{force_tc_prompt} {glossary_prompt} {prev_context}".strip()
                 
                 segments, info = self.whisper_model.transcribe(
@@ -303,16 +269,11 @@ class RealtimeSpeechTranslator:
                     initial_prompt=prompt
                 )
                 
-                # Filter segments based on confidence to remove noise (coughing, throat clearing)
                 valid_segments = []
                 for segment in segments:
-                    # no_speech_prob: Probability that the segment contains no speech
-                    # avg_logprob: Average log probability (confidence) of the text
                     if segment.no_speech_prob > 0.95: 
-                        print(f"🙈 過濾雜音 (No Speech Prob: {segment.no_speech_prob:.2f}): {segment.text}")
                         continue
-                    if segment.avg_logprob < -1.0: # Configurable threshold
-                        print(f"🙈 過濾低信度 (LogProb: {segment.avg_logprob:.2f}): {segment.text}")
+                    if segment.avg_logprob < -1.0:
                         continue
                     valid_segments.append(segment.text.strip())
 
@@ -324,63 +285,109 @@ class RealtimeSpeechTranslator:
                 current_text = self.glossary.clean_text(current_text)
                 
                 if current_text.strip():
-                    print(f"片段識別: {current_text}")
-                    self.text_buffer += current_text
-                    self.last_buffer_update = time.time()
-                    
-                    # 處理標點與斷句
-                    restored_text = self.text_buffer
-                    if self.punct_restorer.use_punct_model:
-                        restored_text = self.punct_restorer.restore(self.text_buffer)
-                    
-                    is_complete = self.punct_restorer.is_complete_sentence(restored_text, self.sentence_endings)
-                    
-                    if is_complete:
-                        final_text = restored_text.strip()
-                        timestamp = datetime.now().strftime("%H:%M:%S")
-                        print(f"\n✅ [{timestamp}] : {final_text}")
-                        
-                        self.text_queue.put({
-                            'text': final_text,
-                            'speaker': current_speaker
-                        })
-                        self.prev_text = final_text
-                        self.text_buffer = ""
-                    else:
-                        print(f"等待完整句子 (Restored: {restored_text})...")
+                    # Update local context for next prompt
+                    self.prev_text_context += current_text
+                    if len(self.prev_text_context) > 200:
+                        self.prev_text_context = self.prev_text_context[-200:]
 
-                else:
-                    print("❌ 無法識別出文字")
-                    
+                    # Push fragment to processing queue
+                    self.fragment_queue.put({
+                        'text': current_text,
+                        'speaker': current_speaker,
+                        'timestamp': time.time()
+                    })
+
             except queue.Empty:
-                # 超時機制：如果太久沒有新聲音(2秒)，且緩衝區有字，強制輸出
-                if self.text_buffer and (time.time() - self.last_buffer_update > 2.0):
-                    
-                    if self.punct_restorer.use_punct_model:
-                        final_text = self.punct_restorer.restore(self.text_buffer)
-                    else:
-                        final_text = self.text_buffer
-                        
-                    final_text = final_text.strip()
-                    if final_text:
-                        timestamp = datetime.now().strftime("%H:%M:%S")
-                        print(f"\n⏰ [{timestamp}] 超時強制輸出: {final_text}")
-                        # 超時強制輸出時，speaker 可能需要用最近一次的，或 Unknown
-                        # 這裡暫時無法取得完美的 speaker context，若 audio capture thread 有保留 speaker info 會更好
-                        # 但既然是 buffer 殘留，通常是同一個人
-                        # 簡化起見，這裡不重新 identify (因為沒有 audio data了)，
-                        # 我們可以存一個 self.last_speaker
-                        
-                        last_speaker = getattr(self, 'last_known_speaker', "Speaker ?")
-                        self.text_queue.put({
-                            'text': final_text,
-                            'speaker': last_speaker
-                        })
-                        self.prev_text = final_text
-                        self.text_buffer = ""
                 continue
             except Exception as e:
                 print(f"ASR 錯誤: {e}")
+
+    def text_processing_thread(self):
+        """文字處理執行緒 (Consumer) - 負責斷句與緩衝"""
+        print("文字處理執行緒啟動")
+
+        self.sentence_endings = {'。', '？', '！', '.', '?', '!'}
+        self.text_buffer = ""
+        self.buffer_speaker = None
+        self.last_buffer_update = time.time()
+        
+        # 嘗試載入標點復原模型
+        self.punct_restorer = PunctuationRestorer()
+        
+        while self.running:
+            try:
+                # 嘗試取得新片段
+                try:
+                    fragment_data = self.fragment_queue.get(timeout=0.5) # Short timeout to allow checking flush logic
+                    new_text = fragment_data['text']
+                    current_speaker = fragment_data['speaker']
+                    
+                    # Check for speaker change
+                    if self.text_buffer and self.buffer_speaker and current_speaker != self.buffer_speaker:
+                         self._flush_buffer(reason="Speaker Switch")
+                    
+                    if not self.text_buffer:
+                        self.buffer_speaker = current_speaker
+                        
+                    self.text_buffer += new_text
+                    self.last_buffer_update = time.time()
+                    
+                    # 嘗試斷句
+                    self._process_buffer()
+                    
+                except queue.Empty:
+                    # Check for timeout flush
+                     if self.text_buffer and (time.time() - self.last_buffer_update > 2.0):
+                        self._flush_buffer(reason="Timeout")
+                        
+            except Exception as e:
+                print(f"文字處理錯誤: {e}")
+
+    def _process_buffer(self):
+        """嘗試從 buffer 中處理出完整句子"""
+        # Restore punctuation
+        restored_text = self.text_buffer
+        if self.punct_restorer.use_punct_model:
+            restored_text = self.punct_restorer.restore(self.text_buffer)
+            
+        # Check if complete
+        is_complete = self.punct_restorer.is_complete_sentence(restored_text, self.sentence_endings)
+        
+        if is_complete:
+            final_text = restored_text.strip()
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            print(f"\n✅ [{timestamp}] [{self.buffer_speaker}]: {final_text}")
+            
+            self.text_queue.put({
+                'text': final_text,
+                'speaker': self.buffer_speaker
+            })
+            self.text_buffer = ""
+        else:
+            # print(f"Buffer (Wait): {restored_text}")
+            pass
+
+    def _flush_buffer(self, reason="Force"):
+        """強制輸出 Buffer"""
+        if not self.text_buffer:
+            return
+            
+        if self.punct_restorer.use_punct_model:
+            final_text = self.punct_restorer.restore(self.text_buffer)
+        else:
+            final_text = self.text_buffer
+            
+        final_text = final_text.strip()
+        if final_text:
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            print(f"\n⏰ [{timestamp}] 強制輸出 ({reason}): {final_text}")
+            
+            self.text_queue.put({
+                'text': final_text,
+                'speaker': self.buffer_speaker if self.buffer_speaker else "Unknown"
+            })
+            
+        self.text_buffer = ""
 
     def translation_thread(self):
         """翻譯執行緒"""
@@ -454,6 +461,7 @@ class RealtimeSpeechTranslator:
         threads = [
             threading.Thread(target=self.audio_capture_thread, daemon=True),
             threading.Thread(target=self.asr_thread, daemon=True),
+            threading.Thread(target=self.text_processing_thread, daemon=True), # New Thread
             threading.Thread(target=self.translation_thread, daemon=True),
             threading.Thread(target=self.display_thread, daemon=True)
         ]
