@@ -372,11 +372,31 @@ class RealtimeSpeechTranslator:
                 continue
             except Exception as e:
                 print(f"ASR 錯誤: {e}")
+    def send_to_server(self, text, speaker="Speaker ?"):
+        """
+        將辨識結果發送到演講伺服器 (Broadcast)
+        """
+        try:
+            import requests
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            url = "https://speech.justdrink.com.tw/speaker"
+            payload = {
+                "text": text,
+                "speaker": speaker,
+                "timestamp": timestamp
+            }
+            
+            # 使用 Session 或直接 post
+            response = requests.post(url, json=payload, timeout=3)
+            
+            if response.status_code == 200:
+                print(f"✅ 已發送至伺服器: {text[:20]}...")
+            else:
+                print(f"⚠️ 發送失敗 [{response.status_code}]: {response.text}")
+                
+        except Exception as e:
+            print(f"⚠️ 連線錯誤: {e}")
 
-
-    
-
-    
     def translation_thread(self):
         """翻譯執行緒"""
         print("翻譯執行緒啟動")
@@ -391,6 +411,10 @@ class RealtimeSpeechTranslator:
                     text = item
                     speaker = "Speaker ?"
 
+                # 1. 恢復原本的發送動作 (Broadcast)
+                self.send_to_server(text, speaker)
+
+                # 2. 翻譯處理 (Translation)
                 if not self.enable_translate:
                     # 如果未開啟翻譯，直接放入隊列但翻譯欄位為空或原樣，
                     # 但根據需求: "若是沒有開啟翻譯功能，則輸出 譯文 的部分，不用顯示"
