@@ -54,8 +54,10 @@ class RealtimeSpeechTranslator:
                  use_gpu=True,
                  model_dir=None,
                  enable_translate=False,
+                 enable_translate=False,
                  trans_mode='local',
-                 trans_url=None):
+                 trans_url=None,
+                 ollama_model=None):
         """
         初始化即時翻譯系統
         
@@ -66,8 +68,9 @@ class RealtimeSpeechTranslator:
             use_gpu: 是否使用 GPU
             model_dir: Whisper 模型下載/讀取路徑 (Optional)
             enable_translate: 是否開啟翻譯功能
-            trans_mode: 翻譯模式 ('local', 'remote')
+            trans_mode: 翻譯模式 ('local', 'remote', 'ollama')
             trans_url: 遠端翻譯 API URL
+            ollama_model: Ollama 模型名稱
         """
         # 音訊參數
         self.FORMAT = pyaudio.paInt16
@@ -95,7 +98,7 @@ class RealtimeSpeechTranslator:
         
         # 翻譯設定
         self.enable_translate = enable_translate
-        self.trans_manager = TranslationManager(mode=trans_mode, url=trans_url) if enable_translate else None
+        self.trans_manager = TranslationManager(mode=trans_mode, url=trans_url, ollama_model=ollama_model) if enable_translate else None
         
         # 載入 Whisper 模型
         print(f"載入 Whisper 模型: {whisper_model}")
@@ -482,8 +485,9 @@ if __name__ == "__main__":
     
     # Translation arguments
     parser.add_argument("--translate", action="store_true", help="Enable translation")
-    parser.add_argument("--trans_mode", type=str, default="local", choices=["local", "remote"], help="Translation mode: local or remote")
+    parser.add_argument("--trans_mode", type=str, default="local", choices=["local", "remote", "ollama"], help="Translation mode: local, remote, or ollama")
     parser.add_argument("--trans_url", type=str, default=None, help="Remote translation URL (required for remote mode)")
+    parser.add_argument("--ollama_model", type=str, default="hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M", help="Ollama model name")
     
     args = parser.parse_args()
 
@@ -495,6 +499,7 @@ if __name__ == "__main__":
         model_dir=args.model_dir,
         enable_translate=args.translate,
         trans_mode=args.trans_mode,
-        trans_url=args.trans_url
+        trans_url=args.trans_url,
+        ollama_model=args.ollama_model
     )
     translator.start()

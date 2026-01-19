@@ -1,17 +1,58 @@
 import requests
 import urllib.parse
+import json
+
+class OllamaTranslator:
+    def __init__(self, model="hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M", url="http://localhost:11434/api/generate"):
+        self.model = model
+        self.url = url
+        print(f"Ollama Translator initialized with model: {self.model}")
+
+    def translate(self, text):
+        if not text:
+            return ""
+        
+        # Prompt for translategemma-12b-it
+        # Adjust prompt format based on model requirements if known. 
+        # Standard instruction format:
+        prompt = f"Translate the following text to Traditional Chinese (Taiwanese):\n\n{text}"
+        
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False
+        }
+        
+        try:
+            response = requests.post(self.url, json=payload, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                translated_text = result.get('response', '')
+                return translated_text.strip()
+            else:
+                print(f"Ollama translation failed [{response.status_code}]: {response.text}")
+                return text
+        except Exception as e:
+            print(f"Ollama error: {e}")
+            return text
 
 class TranslationManager:
-    def __init__(self, mode='local', url=None):
+    def __init__(self, mode='local', url=None, ollama_model=None):
         """
         Initialize the Translation Manager.
         
         Args:
-            mode (str): 'local' or 'remote'.
+            mode (str): 'local', 'remote', or 'ollama'.
             url (str): The URL for remote translation (used if mode is 'remote').
+            ollama_model (str): The Ollama model to use.
         """
         self.mode = mode
         self.url = url
+        self.ollama_translator = None
+        
+        if mode == 'ollama':
+            model = ollama_model if ollama_model else "hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M"
+            self.ollama_translator = OllamaTranslator(model=model)
 
     def translate(self, text):
         """
@@ -30,6 +71,8 @@ class TranslationManager:
             return self._translate_remote(text)
         elif self.mode == 'local':
             return self._translate_local(text)
+        elif self.mode == 'ollama':
+            return self.ollama_translator.translate(text)
         else:
             print(f"Unknown translation mode: {self.mode}")
             return text
