@@ -290,8 +290,10 @@ class RealtimeSpeechTranslator:
                 # 加入 initial_prompt 提供上下文，減少幻覺並維持連貫性
                 # 結合前文與專有名詞
                 glossary_prompt = self.glossary.get_prompt_context()
-                prev_context = self.prev_text[-100:] if self.prev_text else "請將語音辨識為繁體中文。"
-                prompt = f"{glossary_prompt} {prev_context}".strip()
+                # 強制繁體中文 Prompt
+                force_tc_prompt = "以下是繁體中文的內容。"
+                prev_context = self.prev_text[-100:] if self.prev_text else ""
+                prompt = f"{force_tc_prompt} {glossary_prompt} {prev_context}".strip()
                 
                 segments, info = self.whisper_model.transcribe(
                     audio_data,
