@@ -20,6 +20,12 @@ import collections
 from contextlib import contextmanager
 import os
 import sys
+from vad import SileroVAD
+from glossarymanager import GlossaryManager
+from speakerid import SpeakerIdentifier
+from punmarks import PunctuationRestorer
+from translate import TranslationManager
+import argparse
 
 @contextmanager
 def ignore_stderr():
@@ -39,20 +45,16 @@ def ignore_stderr():
         # If stderr redirection fails (e.g. on some Windows environments), just yield
         yield
 
-from vad import SileroVAD
-
-from glossarymanager import GlossaryManager
-
-from speakerid import SpeakerIdentifier
-from punmarks import PunctuationRestorer
-
 class RealtimeSpeechTranslator:
     def __init__(self, 
                  source_lang="zh",
                  target_lang="en",
                  whisper_model="medium",
                  use_gpu=True,
-                 model_dir=None):
+                 model_dir=None,
+                 enable_translate=False,
+                 trans_mode='local',
+                 trans_url=None):
         """
         初始化即時翻譯系統
         
@@ -62,6 +64,9 @@ class RealtimeSpeechTranslator:
             whisper_model: Whisper 模型大小 (tiny, base, small, medium, large)
             use_gpu: 是否使用 GPU
             model_dir: Whisper 模型下載/讀取路徑 (Optional)
+            enable_translate: 是否開啟翻譯功能
+            trans_mode: 翻譯模式 ('local', 'remote')
+            trans_url: 遠端翻譯 API URL
         """
         # 音訊參數
         self.FORMAT = pyaudio.paInt16
@@ -83,6 +88,10 @@ class RealtimeSpeechTranslator:
         # 語言設定
         self.source_lang = source_lang
         self.target_lang = target_lang
+        
+        # 翻譯設定
+        self.enable_translate = enable_translate
+        self.trans_manager = TranslationManager(mode=trans_mode, url=trans_url) if enable_translate else None
         
         # 載入 Whisper 模型
         print(f"載入 Whisper 模型: {whisper_model}")
@@ -366,34 +375,7 @@ class RealtimeSpeechTranslator:
 
 
     
-    def translate_text(self, text, speaker="Speaker ?"):
-        """
-        將辨識結果發送到伺服器
-        """
-        try:
-            import requests
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            url = "https://speech.justdrink.com.tw/speaker"
-            payload = {
-                "text": text,
-                "speaker": speaker,
-                "timestamp": timestamp
-            }
-            
-            # 使用 Session 或直接 post (考慮 thread safety, 直接 post 簡單點)
-            # timeout 是好的習慣
-            response = requests.post(url, json=payload, timeout=3)
-            
-            if response.status_code == 200:
-                print(f"✅ 已發送至伺服器: {text[:20]}...")
-            else:
-                print(f"⚠️ 發送失敗 [{response.status_code}]: {response.text}")
-                
-        except Exception as e:
-            print(f"⚠️ 連線錯誤: {e}")
-        
-        # 回傳原文以便顯示
-        return text
+
     
     def translation_thread(self):
         """翻譯執行緒"""
@@ -409,7 +391,13 @@ class RealtimeSpeechTranslator:
                     text = item
                     speaker = "Speaker ?"
 
-                translation = self.translate_text(text, speaker)
+                if not self.enable_translate:
+                    # 如果未開啟翻譯，直接放入隊列但翻譯欄位為空或原樣，
+                    # 但根據需求: "若是沒有開啟翻譯功能，則輸出 譯文 的部分，不用顯示"
+                    # 我們這裡可以設為 None
+                    translation = None
+                else:
+                    translation = self.trans_manager.translate(text)
                 
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 
@@ -437,7 +425,8 @@ class RealtimeSpeechTranslator:
                 print(f"時間: {result['timestamp']}")
                 print(f"講者: {result['speaker']}")
                 print(f"原文: {result['original']}")
-                print(f"譯文: {result['translation']}")
+                if result['translation']:
+                    print(f"譯文: {result['translation']}")
                 print("="*60 + "\n")
                 
             except queue.Empty:
@@ -476,11 +465,31 @@ class RealtimeSpeechTranslator:
             print("系統已停止")
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Professional Realtime Speech Translator")
+    
+    # Mode arguments
+    parser.add_argument("--model", type=str, default="medium", help="Whisper model size (small, medium, large-v2)")
+    parser.add_argument("--model_dir", type=str, default=None, help="Path to model directory")
+    parser.add_argument("--source", type=str, default="zh", help="Source language code")
+    parser.add_argument("--target", type=str, default="en", help="Target language code")
+    parser.add_argument("--gpu", action="store_true", default=True, help="Use GPU if available (default: True)")
+    parser.add_argument("--no-gpu", action="store_false", dest="gpu", help="Force CPU usage")
+    
+    # Translation arguments
+    parser.add_argument("--translate", action="store_true", help="Enable translation")
+    parser.add_argument("--trans_mode", type=str, default="local", choices=["local", "remote"], help="Translation mode: local or remote")
+    parser.add_argument("--trans_url", type=str, default=None, help="Remote translation URL (required for remote mode)")
+    
+    args = parser.parse_args()
+
     translator = RealtimeSpeechTranslator(
-        source_lang="zh",
-        target_lang="en",
-        whisper_model="medium", 
-        use_gpu=True,
-        model_dir="/home/andyliu/speechserver/speech_py/models/whisper" # 可自行設定模型路徑
+        source_lang=args.source,
+        target_lang=args.target,
+        whisper_model=args.model, 
+        use_gpu=args.gpu,
+        model_dir=args.model_dir,
+        enable_translate=args.translate,
+        trans_mode=args.trans_mode,
+        trans_url=args.trans_url
     )
     translator.start()
