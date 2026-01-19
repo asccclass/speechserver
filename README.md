@@ -87,6 +87,5 @@ python speech.py
 - **Python Client**: 在 `speech.py` 中可調整 `WhisperModel` 大小、語言設定 (`source_lang`, `target_lang`) 以及伺服器 URL。
 - **Server**: 可透過 `server/envfile` 或 `makefile` 修改 Port 與資料庫設定。
 
-## 授權
-
-[您的授權條款]
+## 聲音通道
+你需要的流程是： 瀏覽器 -> 喇叭輸出 (Output Sink) -> 監聽端 (Monitor Source) -> Python
