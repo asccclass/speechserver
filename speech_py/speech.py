@@ -484,8 +484,10 @@ if __name__ == "__main__":
     parser.add_argument("--no-gpu", action="store_false", dest="gpu", help="Force CPU usage")
     
     # Translation arguments
-    parser.add_argument("--translate", action="store_true", help="Enable translation")
-    parser.add_argument("--trans_mode", type=str, default="local", choices=["local", "remote", "ollama"], help="Translation mode: local, remote, or ollama")
+    # Translation arguments
+    parser.add_argument("--translate", action="store_true", default=True, help="Enable translation (default: True)")
+    parser.add_argument("--no-translate", action="store_false", dest="translate", help="Disable translation")
+    parser.add_argument("--trans_mode", type=str, default="ollama", choices=["local", "remote", "ollama"], help="Translation mode: local, remote, or ollama")
     parser.add_argument("--trans_url", type=str, default=None, help="Remote translation URL (required for remote mode)")
     parser.add_argument("--ollama_model", type=str, default="hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M", help="Ollama model name")
     
