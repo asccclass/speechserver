@@ -199,11 +199,14 @@ function appendMessage(data) {
         <div class="message-content">${escapeHtml(data.text)}</div>
     `;
 
-    // Newest on top
-    transcriptDiv.prepend(msgDiv);
-    // Remove old messages if too many? (Optional optimization)
+    // Newest on bottom
+    transcriptDiv.appendChild(msgDiv);
+    // Auto-scroll to bottom
+    transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+
+    // Remove old messages (from top)
     if (transcriptDiv.children.length > 200) {
-        transcriptDiv.lastElementChild.remove();
+        transcriptDiv.firstElementChild.remove();
     }
 }
 
@@ -214,8 +217,10 @@ function appendSystemMessage(text) {
     msgDiv.style.color = 'var(--text-secondary)';
     msgDiv.innerHTML = `<i>${text}</i>`;
 
-    // Newest on top
-    transcriptDiv.prepend(msgDiv);
+    // Newest on bottom
+    transcriptDiv.appendChild(msgDiv);
+    // Auto-scroll to bottom
+    transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
 }
 
 function escapeHtml(text) {
