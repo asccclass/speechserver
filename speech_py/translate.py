@@ -3,19 +3,34 @@ import urllib.parse
 import json
 
 class OllamaTranslator:
-    def __init__(self, model="hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M", url="http://localhost:11434/api/generate"):
+    def __init__(self, model="hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M", url="http://localhost:11434/api/generate", target_lang="en"):
         self.model = model
         self.url = url
-        print(f"Ollama Translator initialized with model: {self.model}")
+        self.target_lang = target_lang
+        print(f"Ollama Translator initialized with model: {self.model}, target: {self.target_lang}")
 
     def translate(self, text):
         if not text:
             return ""
         
         # Prompt for translategemma-12b-it
-        # Adjust prompt format based on model requirements if known. 
+        # Map common language codes to full names for better prompting
+        lang_map = {
+            "zh": "Traditional Chinese (Taiwanese)",
+            "en": "English",
+            "ja": "Japanese",
+            "fr": "French",
+            "tl": "Tagalog",
+            "ko": "Korean",
+            "vi": "Vietnamese",
+            "my": "Burmese",
+            "th": "Thai",
+            "id": "Indonesian"
+        }
+        target_lang_name = lang_map.get(self.target_lang, self.target_lang)
+
         # Standard instruction format:
-        prompt = f"Translate the following text to Traditional Chinese (Taiwanese):\n\n{text}"
+        prompt = f"Translate the following text to {target_lang_name}:\n\n{text}"
         
         payload = {
             "model": self.model,
@@ -37,7 +52,7 @@ class OllamaTranslator:
             return text
 
 class TranslationManager:
-    def __init__(self, mode='local', url=None, ollama_model=None):
+    def __init__(self, mode='local', url=None, ollama_model=None, target_lang="zh"):
         """
         Initialize the Translation Manager.
         
@@ -45,6 +60,7 @@ class TranslationManager:
             mode (str): 'local', 'remote', or 'ollama'.
             url (str): The URL for remote translation (used if mode is 'remote').
             ollama_model (str): The Ollama model to use.
+            target_lang (str): Target language code.
         """
         self.mode = mode
         self.url = url
@@ -52,7 +68,7 @@ class TranslationManager:
         
         if mode == 'ollama':
             model = ollama_model if ollama_model else "hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M"
-            self.ollama_translator = OllamaTranslator(model=model)
+            self.ollama_translator = OllamaTranslator(model=model, target_lang=target_lang)
 
     def translate(self, text):
         """

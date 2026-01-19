@@ -98,7 +98,7 @@ class RealtimeSpeechTranslator:
         
         # 翻譯設定
         self.enable_translate = enable_translate
-        self.trans_manager = TranslationManager(mode=trans_mode, url=trans_url, ollama_model=ollama_model) if enable_translate else None
+        self.trans_manager = TranslationManager(mode=trans_mode, url=trans_url, ollama_model=ollama_model, target_lang=target_lang) if enable_translate else None
         
         # 載入 Whisper 模型
         print(f"載入 Whisper 模型: {whisper_model}")
