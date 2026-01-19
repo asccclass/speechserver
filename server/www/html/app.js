@@ -191,21 +191,25 @@ function appendMessage(data) {
     const timestamp = data.timestamp || new Date().toLocaleTimeString();
     const langTag = data.language ? `[${data.language.toUpperCase()}] ` : '';
 
+    let contentHtml = '';
+    const escapedText = escapeHtml(data.text);
+    const escapedTranslation = data.translation ? escapeHtml(data.translation) : '';
+
+    if (data.translation) {
+        // Show translation as main content, original as tooltip
+        contentHtml = `<div class="message-content" title="${escapedText} (原文)">${escapedTranslation}</div>`;
+    } else {
+        // Show original content
+        contentHtml = `<div class="message-content">${escapedText}</div>`;
+    }
+
     msgDiv.innerHTML = `
         <div class="message-meta">
             <span>${langTag}${data.user || 'Unknown'}</span>
             <span>${timestamp}</span>
         </div>
-        <div class="message-content">${escapeHtml(data.text)}</div>
+        ${contentHtml}
     `;
-
-    if (data.translation) {
-        msgDiv.innerHTML += `
-            <div class="message-translation" style="margin-top: 0.5rem; color: var(--accent-color); font-style: italic;">
-                ${escapeHtml(data.translation)}
-            </div>
-        `;
-    }
 
     // Newest on bottom
     transcriptDiv.appendChild(msgDiv);
