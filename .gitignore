@@ -16,4 +16,4 @@ speech_py/pretrained_models/
 *.wav
 speech_py/list.py
 speech_py/record.py
-
+.python-version
