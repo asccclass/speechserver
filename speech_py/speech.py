@@ -54,7 +54,7 @@ class RealtimeSpeechTranslator:
                  use_gpu=True,
                  model_dir=None,
                  enable_translate=False,
-                 enable_translate=False,
+
                  trans_mode='local',
                  trans_url=None,
                  ollama_model=None):
