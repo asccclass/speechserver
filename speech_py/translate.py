@@ -30,7 +30,7 @@ class OllamaTranslator:
         target_lang_name = lang_map.get(self.target_lang, self.target_lang)
 
         # Standard instruction format:
-        prompt = f"Translate the following text to {target_lang_name}:\n\n{text}"
+        prompt = f"Translate the following text to {target_lang_name} and do not add any explanation:\n\n{text}"
         
         payload = {
             "model": self.model,
