@@ -395,17 +395,14 @@ class RealtimeSpeechTranslator:
                     speaker = "Speaker ?"
 
 
-                # 1. 恢復原本的發送動作 (Broadcast)
-                self.notifier.send(text, speaker)
-
-                # 2. 翻譯處理 (Translation)
                 if not self.enable_translate:
-                    # 如果未開啟翻譯，直接放入隊列但翻譯欄位為空或原樣，
-                    # 但根據需求: "若是沒有開啟翻譯功能，則輸出 譯文 的部分，不用顯示"
-                    # 我們這裡可以設為 None
+                    # 如果未開啟翻譯，直接放入隊列但翻譯欄位為空或原樣
                     translation = None
                 else:
                     translation = self.trans_manager.translate(text)
+                
+                # 發送結果到伺服器 (包含翻譯)
+                self.notifier.send(text, speaker, translation)
                 
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 
