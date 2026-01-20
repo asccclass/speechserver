@@ -174,7 +174,7 @@ button:disabled {
     user-select: none;
 }
 
-.checkbox-wrapper input:checked ~ .checkbox-label {
+.checkbox-wrapper input:checked~.checkbox-label {
     background-color: var(--accent-color);
     border-color: var(--accent-color);
     color: white;
@@ -244,6 +244,7 @@ button:disabled {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -265,13 +266,15 @@ button:disabled {
 
 .message-col {
     flex: 1;
-    min-width: 0; /* Prevent overflow */
+    min-width: 0;
+    /* Prevent overflow */
 }
 
 .message-col.translation {
     border-right: 1px solid var(--border-color);
     padding-right: 1rem;
-    color: var(--accent-color); /* Highlight translation */
+    color: var(--accent-color);
+    /* Highlight translation */
 }
 
 .message-col.original {
@@ -293,74 +296,101 @@ button:disabled {
 }
 
 
-/* Compact Speaker Section (Bottom Bar) */
-#speaker-section {
+/* Transcript Headers */
+.transcript-header {
+    display: flex;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-secondary);
+    border-radius: 0.5rem 0.5rem 0 0;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.header-col {
+    flex: 1;
+}
+
+/* Update container to not need padding bottom */
+.container {
+    padding-bottom: 1.5rem;
+}
+
+
+/* Modal Styles */
+.modal-overlay {
     position: fixed;
-    bottom: 0;
+    top: 0;
     left: 0;
     width: 100%;
-    background-color: var(--bg-secondary);
-    border-top: 1px solid var(--border-color);
-    padding: 1rem;
-    box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1);
-    z-index: 100;
-    transition: transform 0.3s ease;
-}
-
-#speaker-section.hidden {
-    transform: translateY(100%);
-}
-
-#speaker-section .card-content {
-    max-width: 1200px;
-    margin: 0 auto;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
     display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 1rem;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
 }
 
-/* Toggle Button */
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-content {
+    background-color: var(--bg-secondary);
+    padding: 2rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    width: 90%;
+    max-width: 500px;
+    transform: scale(0.95);
+    transition: transform 0.2s ease;
+}
+
+.modal-overlay.active .modal-content {
+    transform: scale(1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    width: auto;
+}
+
+.close-btn:hover {
+    color: var(--text-primary);
+    background: none;
+}
+
+/* Adjust Speaker Toggle Button */
 #speaker-toggle {
     position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    z-index: 101;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 100;
     width: auto;
     border-radius: 2rem;
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    box-shadow: var(--card-shadow);
-}
-#speaker-toggle:hover {
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-}
-
-/* Compact Form */
-.compact-form {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-}
-
-.compact-form .form-group {
-    margin-bottom: 0;
-}
-
-.compact-form input[type="text"] {
-    padding: 0.5rem;
-}
-
-.compact-form button {
-    width: auto;
-    white-space: nowrap;
-}
-
-/* Adjust Main Container to not be hidden by footer */
-.container {
-    padding-bottom: 100px; /* Space for speaker bar */
+    padding: 0.75rem 1.5rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
 }

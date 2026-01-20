@@ -244,17 +244,34 @@ function escapeHtml(text) {
         .replace(/'/g, "&#039;");
 }
 
-function toggleSpeakerSection() {
-    const section = document.getElementById('speaker-section');
-    const btn = document.getElementById('speaker-toggle');
-    section.classList.toggle('hidden');
+function toggleSpeakerModal() {
+    const overlay = document.getElementById('speaker-modal-overlay');
+    overlay.classList.toggle('active');
 
-    if (section.classList.contains('hidden')) {
-        btn.textContent = 'Show Speaker';
-    } else {
-        btn.textContent = 'Hide Speaker';
+    if (overlay.classList.contains('active')) {
+        // Focus input
+        setTimeout(() => {
+            document.getElementById('speaker-text').focus();
+        }, 100);
     }
 }
+
+// Close modal when clicking outside
+document.getElementById('speaker-modal-overlay').addEventListener('click', function (e) {
+    if (e.target === this) {
+        toggleSpeakerModal();
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('speaker-modal-overlay');
+        if (overlay.classList.contains('active')) {
+            toggleSpeakerModal();
+        }
+    }
+});
 
 // Initialize timestamp for speaker form if needed
 document.body.addEventListener('htmx:configRequest', function (evt) {
