@@ -17,3 +17,4 @@ speech_py/pretrained_models/
 speech_py/list.py
 speech_py/record.py
 .python-version
+.env

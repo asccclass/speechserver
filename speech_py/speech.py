@@ -27,6 +27,10 @@ from punmarks import PunctuationRestorer
 from translate import TranslationManager
 from notifyserver import ServerNotifier
 import argparse
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 @contextmanager
 def ignore_stderr():
@@ -483,20 +487,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Professional Realtime Speech Translator")
     
     # Mode arguments
-    parser.add_argument("--model", type=str, default="medium", help="Whisper model size (small, medium, large-v2)")
-    parser.add_argument("--model_dir", type=str, default=None, help="Path to model directory")
-    parser.add_argument("--source", type=str, default="zh", help="Source language code")
-    parser.add_argument("--target", type=str, default="en", help="Target language code")
-    parser.add_argument("--gpu", action="store_true", default=True, help="Use GPU if available (default: True)")
+    parser.add_argument("--model", type=str, default=os.getenv("WHISPER_MODEL", "medium"), help="Whisper model size (small, medium, large-v2)")
+    parser.add_argument("--model_dir", type=str, default=os.getenv("WHISPER_MODEL_DIR"), help="Path to model directory")
+    parser.add_argument("--source", type=str, default=os.getenv("SPEECH_SOURCE_LANG", "zh"), help="Source language code")
+    parser.add_argument("--target", type=str, default=os.getenv("SPEECH_TARGET_LANG", "en"), help="Target language code")
+    
+    # Handle boolean for GPU
+    use_gpu_env = os.getenv("USE_GPU", "true").lower() == "true"
+    parser.add_argument("--gpu", action="store_true", default=use_gpu_env, help="Use GPU if available (default: True)")
     parser.add_argument("--no-gpu", action="store_false", dest="gpu", help="Force CPU usage")
     
     # Translation arguments
     # Translation arguments
-    parser.add_argument("--translate", action="store_true", default=True, help="Enable translation (default: True)")
+    enable_translate_env = os.getenv("ENABLE_TRANSLATE", "true").lower() == "true"
+    parser.add_argument("--translate", action="store_true", default=enable_translate_env, help="Enable translation (default: True)")
     parser.add_argument("--no-translate", action="store_false", dest="translate", help="Disable translation")
-    parser.add_argument("--trans_mode", type=str, default="ollama", choices=["local", "remote", "ollama"], help="Translation mode: local, remote, or ollama")
-    parser.add_argument("--trans_url", type=str, default=None, help="Remote translation URL (required for remote mode)")
-    parser.add_argument("--ollama_model", type=str, default="hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M", help="Ollama model name")
+    
+    parser.add_argument("--trans_mode", type=str, default=os.getenv("TRANS_MODE", "ollama"), choices=["local", "remote", "ollama"], help="Translation mode: local, remote, or ollama")
+    parser.add_argument("--trans_url", type=str, default=os.getenv("TRANS_URL"), help="Remote translation URL (required for remote mode)")
+    parser.add_argument("--ollama_model", type=str, default=os.getenv("OLLAMA_MODEL", "hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M"), help="Ollama model name")
     
     args = parser.parse_args()
 
