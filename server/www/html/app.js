@@ -1,7 +1,8 @@
 // app.js
 
 let socket = null;
-const transcriptDiv = document.getElementById('transcript');
+const transDiv = document.getElementById('transcript-translation');
+const sourceDiv = document.getElementById('transcript-source');
 const connectionStatus = document.getElementById('connectionStatus');
 const connectBtn = document.getElementById('connectBtn');
 let isConnected = false;
@@ -9,6 +10,23 @@ let shouldReconnect = false;
 let reconnectTimeout = null;
 let heartbeatInterval = null;
 const HEARTBEAT_TIME_MS = 30000; // 30 seconds
+
+// Modal Controls
+function openSpeakerModal() {
+    document.getElementById('speakerModal').classList.remove('hidden');
+}
+
+function closeSpeakerModal() {
+    document.getElementById('speakerModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+window.onclick = function (event) {
+    const modal = document.getElementById('speakerModal');
+    if (event.target === modal) {
+        closeSpeakerModal();
+    }
+}
 
 function getSelectedLanguages() {
     const checkboxes = document.querySelectorAll('input[name="lang"]:checked');
@@ -41,12 +59,11 @@ function connect() {
     // UI Updates
     connectBtn.disabled = true;
     connectBtn.textContent = 'Connecting...';
-    // Only show connecting message if transcript is empty to avoid cluttering during reconnect
-    if (transcriptDiv.children.length === 0) {
-        transcriptDiv.innerHTML = '<div id="connecting-msg" style="text-align: center; color: var(--text-secondary); padding-top: 2rem;">Connecting...</div>';
-    } else {
-        appendSystemMessage('Reconnecting...');
-    }
+
+    // Clear placeholders if they exist
+    clearPlaceholders();
+
+    appendSystemMessage('Connecting...');
 
     try {
         socket = new WebSocket(wsUrl);
@@ -54,17 +71,7 @@ function connect() {
             console.log('WebSocket Connected');
             isConnected = true;
             updateStatus(true);
-
-            // Remove "Connecting..." placeholder if it exists
-            const connectingMsg = document.getElementById('connecting-msg');
-            if (connectingMsg) {
-                connectingMsg.remove();
-            }
-            // If transcript was just "Connecting...", clear it
-            if (transcriptDiv.innerHTML.includes('padding-top: 2rem;">Connecting...</div>')) {
-                transcriptDiv.innerHTML = '';
-            }
-            // appendSystemMessage('Connected to server.');
+            appendSystemMessage('Connected to server.');
             startHeartbeat();
         };
 
@@ -129,11 +136,7 @@ function cleanupConnection() {
 // --- Heartbeat Logic ---
 
 function startHeartbeat() {
-    stopHeartbeat(); // Ensure no duplicates
-    // Set a timer to send a ping if no message received for HEARTBEAT_TIME_MS
-    // Actually, usually we send ping periodically.
-    // But requirement says: "If certain time no message received, please auto send heart beat"
-    // So we reset the timer on every message.
+    stopHeartbeat();
     resetHeartbeat();
 }
 
@@ -150,7 +153,6 @@ function resetHeartbeat() {
         if (socket && socket.readyState === WebSocket.OPEN) {
             console.log('Sending heartbeat...');
             socket.send('ping'); // Send heartbeat
-            // Restart timer to keep checking
             resetHeartbeat();
         }
     }, HEARTBEAT_TIME_MS);
@@ -181,57 +183,88 @@ function updateStatus(connected) {
     }
 }
 
+function clearPlaceholders() {
+    const placeholders = document.querySelectorAll('.placeholder-text');
+    placeholders.forEach(el => el.remove());
+}
+
 function appendMessage(data) {
     // data structure based on hub.go SpeakPayload:
     // { rooms, user, text, timestamp, language, translation }
 
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'message-row';
-
     const timestamp = data.timestamp || new Date().toLocaleTimeString();
     const langTag = data.language ? `[${data.language.toUpperCase()}] ` : '';
+    const user = data.user || 'Unknown';
 
-    const escapedText = escapeHtml(data.text);
-    const escapedTranslation = data.translation ? escapeHtml(data.translation) : '';
+    // 1. Handle Translation Column (Left)
+    if (data.translation) {
+        const transHtml = `<div class="message-content">${escapeHtml(data.translation)}</div>`;
+        const transMeta = `
+            <div class="message-meta">
+                <span>${timestamp}</span>
+            </div>`;
+        addEntryToColumn(transDiv, transHtml, transMeta);
+    } else {
+        // If no translation, add a spacer or duplicate? User requested "Translation Result".
+        // If no translation logic exists yet, maybe just show original?
+        // For now, if translation is empty, we show a spacer or nothing.
+        // But checking requirements: "Translation result with original text ... simultaneously appear".
+        // If there is no translation (e.g. speaking same language), usually we prefer to see the text.
+        // I will display the original text in Translation column if translation is missing,
+        // but visually styled differently or just the text.
+        // Actually, let's keep it empty or show a placeholder if strictly separating.
+        // However, standard translation UI usually shows Source -> Target.
+        // If Source == Target, it might not send translation.
+        // Let's assume we simply don't print to left if no translation.
+        // BUT, to keep alignment, we might want to print a "blank" block?
+        // No, chat interfaces usually behave like independent streams or linked bubbles.
+        // Let's just add to Source column if no translation.
+        // However, the request implies they come together.
+        // Let's assume they are independent logs.
+    }
 
-    msgDiv.innerHTML = `
-        <div class="message-col translation">
-            <div class="msg-meta">Translation</div>
-            <div class="msg-text">${escapedTranslation}</div>
-        </div>
-        <div class="message-col original">
-            <div class="msg-meta">${langTag}${data.user || 'Unknown'} - ${timestamp}</div>
-            <div class="msg-text">${escapedText}</div>
-        </div>
-    `;
+    // 2. Handle Source Column (Right)
+    if (data.text) {
+        const sourceHtml = `<div class="message-content">${escapeHtml(data.text)}</div>`;
+        const sourceMeta = `
+            <div class="message-meta">
+                <span>${langTag}${user}</span>
+                <span>${timestamp}</span>
+            </div>`;
+        addEntryToColumn(sourceDiv, sourceHtml, sourceMeta);
+    }
+}
 
-    // Newest on bottom
-    transcriptDiv.appendChild(msgDiv);
-    // Auto-scroll to bottom
-    transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+function addEntryToColumn(container, contentHtml, metaHtml) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message';
+    msgDiv.innerHTML = `${metaHtml}${contentHtml}`;
 
-    // Remove old messages (from top)
-    if (transcriptDiv.children.length > 200) {
-        transcriptDiv.firstElementChild.remove();
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+
+    // Limit history
+    if (container.children.length > 200) {
+        container.firstElementChild.remove();
     }
 }
 
 function appendSystemMessage(text) {
     const msgDiv = document.createElement('div');
-    msgDiv.className = 'message-row';
-    msgDiv.style.justifyContent = 'center';
-    msgDiv.style.borderLeft = 'none';
+    msgDiv.className = 'message';
+    msgDiv.style.borderLeftColor = 'var(--text-secondary)';
+    msgDiv.style.color = 'var(--text-secondary)';
+    msgDiv.innerHTML = `<i>${text}</i>`;
 
-    msgDiv.innerHTML = `
-        <div style="color: var(--text-secondary); font-style: italic;">
-            ${text}
-        </div>
-    `;
-
-    // Newest on bottom
-    transcriptDiv.appendChild(msgDiv);
-    // Auto-scroll to bottom
-    transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+    // Append to BOTH columns for visibility
+    [transDiv, sourceDiv].forEach(div => {
+        if (div) {
+            // Clone for the second append
+            const clone = msgDiv.cloneNode(true);
+            div.appendChild(clone);
+            div.scrollTop = div.scrollHeight;
+        }
+    });
 }
 
 function escapeHtml(text) {
@@ -243,35 +276,6 @@ function escapeHtml(text) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
-
-function toggleSpeakerModal() {
-    const overlay = document.getElementById('speaker-modal-overlay');
-    overlay.classList.toggle('active');
-
-    if (overlay.classList.contains('active')) {
-        // Focus input
-        setTimeout(() => {
-            document.getElementById('speaker-text').focus();
-        }, 100);
-    }
-}
-
-// Close modal when clicking outside
-document.getElementById('speaker-modal-overlay').addEventListener('click', function (e) {
-    if (e.target === this) {
-        toggleSpeakerModal();
-    }
-});
-
-// Close modal on Escape key
-document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-        const overlay = document.getElementById('speaker-modal-overlay');
-        if (overlay.classList.contains('active')) {
-            toggleSpeakerModal();
-        }
-    }
-});
 
 // Initialize timestamp for speaker form if needed
 document.body.addEventListener('htmx:configRequest', function (evt) {
