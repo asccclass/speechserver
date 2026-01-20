@@ -26,9 +26,9 @@
             <p style="color: var(--text-secondary);">Real-time Speech Broadcasting System</p>
         </header>
 
-        <div class="grid">
+        <div class="main-content">
             <!-- Listener Section -->
-            <div class="card">
+            <div class="card" style="height: calc(100vh - 250px); min-height: 400px;">
                 <div class="card-header">
                     <div class="card-title">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -45,87 +45,80 @@
                         <div class="status-dot"></div>
                         <span>Disconnected</span>
                     </div>
-                </div>
 
-                <div class="form-group">
-                    <label>Select Languages:</label>
-                    <div class="lang-selector">
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" name="lang" value="en" id="lang-en" checked>
-                            <label class="checkbox-label" for="lang-en">English</label>
+                    <div class="form-group"
+                        style="margin-left: auto; margin-bottom: 0; display: flex; align-items: center; gap: 1rem;">
+                        <div class="lang-selector" style="margin-bottom: 0;">
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" name="lang" value="en" id="lang-en" checked>
+                                <label class="checkbox-label" for="lang-en">English</label>
+                            </div>
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" name="lang" value="cn" id="lang-cn">
+                                <label class="checkbox-label" for="lang-cn">Chinese</label>
+                            </div>
+                            <!-- Added others if needed -->
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" name="lang" value="ja" id="lang-ja">
+                                <label class="checkbox-label" for="lang-ja">Japanese</label>
+                            </div>
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" name="lang" value="fr" id="lang-fr">
+                                <label class="checkbox-label" for="lang-fr">French</label>
+                            </div>
                         </div>
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" name="lang" value="cn" id="lang-cn">
-                            <label class="checkbox-label" for="lang-cn">Chinese</label>
-                        </div>
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" name="lang" value="ja" id="lang-ja">
-                            <label class="checkbox-label" for="lang-ja">Japanese</label>
-                        </div>
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" name="lang" value="fr" id="lang-fr">
-                            <label class="checkbox-label" for="lang-fr">French</label>
-                        </div>
+                        <button id="connectBtn" onclick="toggleConnection()" style="width: auto;">Connect</button>
                     </div>
-                    <button id="connectBtn" onclick="toggleConnection()">Connect</button>
                 </div>
 
-                <div id="transcript" role="log" aria-live="polite">
+                <div id="transcript" role="log" aria-live="polite" style="height: 100%;">
                     <!-- Messages will appear here -->
                     <div style="text-align: center; color: var(--text-secondary); padding-top: 2rem;">
                         Waiting for connection...
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Speaker Section (For Testing) -->
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                        </svg>
-                        Speaker (Test)
-                    </div>
-                </div>
+    <!-- Toggle Button -->
+    <button id="speaker-toggle" onclick="toggleSpeakerSection()">
+        Show Speaker
+    </button>
 
-                <form hx-post="/speaker" hx-ext="json-enc" hx-swap="none" hx-on::after-request="this.reset()">
-                    <div class="form-group">
-                        <label for="speaker-text">Broadcast Message</label>
-                        <textarea id="speaker-text" name="text" rows="4" placeholder="Type something to broadcast..."
-                            required></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="speaker-lang">Language Tag</label>
-                        <input type="text" id="speaker-lang" name="language" placeholder="e.g. en, cn" value="en">
-                    </div>
-
-                    <!-- Hidden fields to match Payload struct -->
-                    <input type="hidden" name="user" value="web-client">
-                    <input type="hidden" name="rooms" value="default">
-                    <input type="hidden" name="timestamp" value=""> <!-- Could be filled by JS if needed, or backend -->
-
-                    <button type="submit">
-                        Broadcast
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="22" y1="2" x2="11" y2="13" />
-                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                        </svg>
-                    </button>
-                </form>
-
-                <div style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary);">
-                    <p>Uses HTMX to POST JSON to <code>/speaker</code>.</p>
-                </div>
+    <!-- Speaker Section (Fixed Bottom) -->
+    <div id="speaker-section" class="hidden">
+        <div class="card-content">
+            <div class="card-title" style="white-space: nowrap; font-size: 1rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                Speaker
             </div>
+
+            <form hx-post="/speaker" hx-ext="json-enc" hx-swap="none" hx-on::after-request="this.reset()"
+                class="compact-form">
+                <input type="text" id="speaker-text" name="text" placeholder="Type message..." required
+                    style="flex: 1;">
+
+                <input type="text" id="speaker-lang" name="language" placeholder="Lang (en)" value="en"
+                    style="width: 80px;">
+
+                <!-- Hidden fields -->
+                <input type="hidden" name="user" value="web-client">
+                <input type="hidden" name="rooms" value="default">
+                <input type="hidden" name="timestamp" value="">
+
+                <button type="submit">
+                    Send
+                </button>
+            </form>
         </div>
     </div>
 
     <!-- Application Logic -->
-    <script src="app.js?v=004"></script>
+    <script src="app.js?v=005"></script>
 </body>
 
 </html>

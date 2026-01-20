@@ -183,32 +183,26 @@ function updateStatus(connected) {
 
 function appendMessage(data) {
     // data structure based on hub.go SpeakPayload:
-    // { rooms, user, text, timestamp, language }
+    // { rooms, user, text, timestamp, language, translation }
 
     const msgDiv = document.createElement('div');
-    msgDiv.className = 'message';
+    msgDiv.className = 'message-row';
 
     const timestamp = data.timestamp || new Date().toLocaleTimeString();
     const langTag = data.language ? `[${data.language.toUpperCase()}] ` : '';
 
-    let contentHtml = '';
     const escapedText = escapeHtml(data.text);
     const escapedTranslation = data.translation ? escapeHtml(data.translation) : '';
 
-    if (data.translation) {
-        // Show translation as main content, original as tooltip
-        contentHtml = `<div class="message-content" title="${escapedText} (原文)">${escapedTranslation}</div>`;
-    } else {
-        // Show original content
-        contentHtml = `<div class="message-content">${escapedText}</div>`;
-    }
-
     msgDiv.innerHTML = `
-        <div class="message-meta">
-            <span>${langTag}${data.user || 'Unknown'}</span>
-            <span>${timestamp}</span>
+        <div class="message-col translation">
+            <div class="msg-meta">Translation</div>
+            <div class="msg-text">${escapedTranslation}</div>
         </div>
-        ${contentHtml}
+        <div class="message-col original">
+            <div class="msg-meta">${langTag}${data.user || 'Unknown'} - ${timestamp}</div>
+            <div class="msg-text">${escapedText}</div>
+        </div>
     `;
 
     // Newest on bottom
@@ -224,10 +218,15 @@ function appendMessage(data) {
 
 function appendSystemMessage(text) {
     const msgDiv = document.createElement('div');
-    msgDiv.className = 'message';
-    msgDiv.style.borderLeftColor = 'var(--text-secondary)';
-    msgDiv.style.color = 'var(--text-secondary)';
-    msgDiv.innerHTML = `<i>${text}</i>`;
+    msgDiv.className = 'message-row';
+    msgDiv.style.justifyContent = 'center';
+    msgDiv.style.borderLeft = 'none';
+
+    msgDiv.innerHTML = `
+        <div style="color: var(--text-secondary); font-style: italic;">
+            ${text}
+        </div>
+    `;
 
     // Newest on bottom
     transcriptDiv.appendChild(msgDiv);
@@ -243,6 +242,18 @@ function escapeHtml(text) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function toggleSpeakerSection() {
+    const section = document.getElementById('speaker-section');
+    const btn = document.getElementById('speaker-toggle');
+    section.classList.toggle('hidden');
+
+    if (section.classList.contains('hidden')) {
+        btn.textContent = 'Show Speaker';
+    } else {
+        btn.textContent = 'Hide Speaker';
+    }
 }
 
 // Initialize timestamp for speaker form if needed
