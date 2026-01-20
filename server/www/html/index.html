@@ -26,12 +26,12 @@
             <p style="color: var(--text-secondary);">Real-time Speech Broadcasting System</p>
         </header>
 
-        <div class="controls-bar">
-            <!-- Connection Controls -->
-            <div class="card control-card">
-                <div class="card-header-compact">
-                    <div class="card-title-compact">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        <div class="grid">
+            <!-- Listener Section -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path
                                 d="M12 2c-1.7 0-3 1.2-3 2.6v6.8c0 1.4 1.3 2.6 3 2.6s3-1.2 3-2.6V4.6C15 3.2 13.7 2 12 2z" />
@@ -39,7 +39,7 @@
                             <line x1="12" y1="19" x2="12" y2="23" />
                             <line x1="8" y1="23" x2="16" y2="23" />
                         </svg>
-                        Listener Settings
+                        Listener
                     </div>
                     <div class="status" id="connectionStatus">
                         <div class="status-dot"></div>
@@ -47,7 +47,8 @@
                     </div>
                 </div>
 
-                <div class="control-group">
+                <div class="form-group">
+                    <label>Select Languages:</label>
                     <div class="lang-selector">
                         <div class="checkbox-wrapper">
                             <input type="checkbox" name="lang" value="en" id="lang-en" checked>
@@ -66,52 +67,29 @@
                             <label class="checkbox-label" for="lang-fr">French</label>
                         </div>
                     </div>
-                    <div class="button-group">
-                        <button id="connectBtn" onclick="toggleConnection()">Connect</button>
-                        <button id="speakerBtn" class="secondary-btn" onclick="openSpeakerModal()">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                            </svg>
-                            Speaker Mode
-                        </button>
+                    <button id="connectBtn" onclick="toggleConnection()">Connect</button>
+                </div>
+
+                <div id="transcript" role="log" aria-live="polite">
+                    <!-- Messages will appear here -->
+                    <div style="text-align: center; color: var(--text-secondary); padding-top: 2rem;">
+                        Waiting for connection...
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="grid display-area">
-            <!-- Translation Section (Left) -->
-            <div class="card display-card">
+            <!-- Speaker Section (For Testing) -->
+            <div class="card">
                 <div class="card-header">
-                    <div class="card-title">Translation Result</div>
+                    <div class="card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        Speaker (Test)
+                    </div>
                 </div>
-                <div id="transcript-translation" class="transcript-box" role="log" aria-live="polite">
-                    <div class="placeholder-text">Translation will appear here...</div>
-                </div>
-            </div>
 
-            <!-- Source Section (Right) -->
-            <div class="card display-card">
-                <div class="card-header">
-                    <div class="card-title">Original Source</div>
-                </div>
-                <div id="transcript-source" class="transcript-box" role="log" aria-live="polite">
-                    <div class="placeholder-text">Original text will appear here...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Speaker Modal -->
-    <div id="speakerModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Speaker (Test)</h2>
-                <button class="close-btn" onclick="closeSpeakerModal()">&times;</button>
-            </div>
-            <div class="modal-body">
                 <form hx-post="/speaker" hx-ext="json-enc" hx-swap="none" hx-on::after-request="this.reset()">
                     <div class="form-group">
                         <label for="speaker-text">Broadcast Message</label>
@@ -127,7 +105,7 @@
                     <!-- Hidden fields to match Payload struct -->
                     <input type="hidden" name="user" value="web-client">
                     <input type="hidden" name="rooms" value="default">
-                    <input type="hidden" name="timestamp" value="">
+                    <input type="hidden" name="timestamp" value=""> <!-- Could be filled by JS if needed, or backend -->
 
                     <button type="submit">
                         Broadcast
@@ -138,6 +116,7 @@
                         </svg>
                     </button>
                 </form>
+
                 <div style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary);">
                     <p>Uses HTMX to POST JSON to <code>/speaker</code>.</p>
                 </div>
@@ -146,7 +125,7 @@
     </div>
 
     <!-- Application Logic -->
-    <script src="app.js?v=009"></script>
+    <script src="app.js?v=004"></script>
 </body>
 
 </html>
