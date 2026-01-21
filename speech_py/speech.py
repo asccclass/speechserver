@@ -62,7 +62,8 @@ class RealtimeSpeechTranslator:
 
                  trans_mode='local',
                  trans_url=None,
-                 ollama_model=None):
+                 ollama_model=None,
+                 use_ckip=False):
         """
         初始化即時翻譯系統
         
@@ -104,6 +105,11 @@ class RealtimeSpeechTranslator:
         # 翻譯設定
         self.enable_translate = enable_translate
         self.trans_manager = TranslationManager(mode=trans_mode, url=trans_url, ollama_model=ollama_model, target_lang=target_lang) if enable_translate else None
+        
+        # Sentence Splitter Config
+        self.use_ckip = use_ckip
+        if self.use_ckip:
+            print("CKIP mode enabled for sentence splitting (Chinese)")
         
         # 載入 Whisper 模型
         print(f"載入 Whisper 模型: {whisper_model}")
@@ -358,7 +364,7 @@ class RealtimeSpeechTranslator:
             
         # 2. Use robust sentence splitter
         # We allow it to split liberally.
-        sentences = split_text(text_to_process, max_len=200)
+        sentences = split_text(text_to_process, max_len=200, use_ckip=self.use_ckip)
         
         if not sentences:
             return
@@ -553,6 +559,10 @@ if __name__ == "__main__":
     parser.add_argument("--trans_url", type=str, default=os.getenv("TRANS_URL"), help="Remote translation URL (required for remote mode)")
     parser.add_argument("--ollama_model", type=str, default=os.getenv("OLLAMA_MODEL", "hf.co/mradermacher/translategemma-12b-it-GGUF:Q4_K_M"), help="Ollama model name")
     
+    # CKIP argument
+    use_ckip_env = os.getenv("USE_CKIP", "false").lower() == "true"
+    parser.add_argument("--use-ckip", action="store_true", default=use_ckip_env, help="Enable CKIP for better Chinese segmentation")
+
     args = parser.parse_args()
 
     translator = RealtimeSpeechTranslator(
@@ -564,6 +574,7 @@ if __name__ == "__main__":
         enable_translate=args.translate,
         trans_mode=args.trans_mode,
         trans_url=args.trans_url,
-        ollama_model=args.ollama_model
+        ollama_model=args.ollama_model,
+        use_ckip=args.use_ckip
     )
     translator.start()

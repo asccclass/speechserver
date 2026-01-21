@@ -8,3 +8,4 @@ deepmultilingualpunctuation
 requests
 speechbrain
 python-dotenv
+ckip-transformers
