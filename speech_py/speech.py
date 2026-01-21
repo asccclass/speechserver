@@ -26,6 +26,7 @@ from speakerid import SpeakerIdentifier
 from punmarks import PunctuationRestorer
 from translate import TranslationManager
 from notifyserver import ServerNotifier
+from sentence_splitter import split_text, is_abbrev, SENT_END_PUNCT, TRAILING_CLOSE
 import argparse
 from dotenv import load_dotenv
 
@@ -349,27 +350,72 @@ class RealtimeSpeechTranslator:
 
     def _process_buffer(self):
         """嘗試從 buffer 中處理出完整句子"""
-        # Restore punctuation
-        restored_text = self.text_buffer
+        # 1. Restore punctuation (if enabled)
+        # We work on a local copy so we can determine what to cut
+        text_to_process = self.text_buffer
         if self.punct_restorer.use_punct_model:
-            restored_text = self.punct_restorer.restore(self.text_buffer)
+            text_to_process = self.punct_restorer.restore(text_to_process)
             
-        # Check if complete
-        is_complete = self.punct_restorer.is_complete_sentence(restored_text, self.sentence_endings)
+        # 2. Use robust sentence splitter
+        # We allow it to split liberally.
+        sentences = split_text(text_to_process, max_len=200)
         
-        if is_complete:
-            final_text = restored_text.strip()
+        if not sentences:
+            return
+
+        # 3. Determine if the last segment is truly complete
+        # Logic: Treat everything except the last segment as ready to go.
+        # Check the last segment for completeness tokens.
+        
+        ready_sentences = sentences[:-1]
+        last_segment = sentences[-1]
+        
+        is_last_complete = False
+        
+        # Check if last_segment ends with valid punctuation
+        if last_segment.strip():
+            last_char = last_segment.strip()[-1]
+            if last_char in SENT_END_PUNCT or last_char in TRAILING_CLOSE:
+                # It ends with punctuation. But is it an abbreviation?
+                # Extract last token
+                # Simple split by whitespace
+                tokens = last_segment.strip().split()
+                if tokens:
+                    last_token = tokens[-1].lower()
+                    # Remove trailing punct for abbrev check if needed? 
+                    # is_abbrev expects "mr." or "u.s."
+                    
+                    if not is_abbrev(last_token):
+                        is_last_complete = True
+                    else:
+                        # Ends in abbrev (e.g. "Mr."), so wait for more.
+                        is_last_complete = False
+            else:
+                # No ending punctuation -> incomplete
+                is_last_complete = False
+        else:
+             # Empty/whitespace last segment
+             is_last_complete = False
+
+        if is_last_complete:
+            ready_sentences.append(last_segment)
+            self.text_buffer = "" # All consumed
+        else:
+             # Keep the last segment in buffer
+             self.text_buffer = last_segment
+
+        # 4. Output ready sentences
+        for txt in ready_sentences:
+            txt = txt.strip()
+            if not txt: continue
+            
             timestamp = datetime.now().strftime("%H:%M:%S")
-            print(f"\n✅ [{timestamp}] [{self.buffer_speaker}]: {final_text}")
+            print(f"\n✅ [{timestamp}] [{self.buffer_speaker}]: {txt}")
             
             self.text_queue.put({
-                'text': final_text,
+                'text': txt,
                 'speaker': self.buffer_speaker
             })
-            self.text_buffer = ""
-        else:
-            # print(f"Buffer (Wait): {restored_text}")
-            pass
 
     def _flush_buffer(self, reason="Force"):
         """強制輸出 Buffer"""
