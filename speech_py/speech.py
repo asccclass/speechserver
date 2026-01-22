@@ -253,8 +253,6 @@ class RealtimeSpeechTranslator:
         """語音辨識執行緒 (Producer)"""
         print("ASR 執行緒啟動")
         
-        # 僅用於此線程 Prompt Context 的簡單緩存，真正的句子緩衝移至 text_processing_thread
-        # 我們仍保留一些基本的 context 以優化 Whisper 識別準確度，但不處理完整的句子斷句 logic
         self.prev_text_context = "" 
 
         while self.running:
@@ -495,8 +493,8 @@ class RealtimeSpeechTranslator:
                 print(f"時間: {result['timestamp']}")
                 print(f"講者: {result['speaker']}")
                 print(f"原文: {result['original']}")
-                if result['translation']:
-                    print(f"譯文: {result['translation']}")
+                #if result['translation']:
+                    #print(f"譯文: {result['translation']}")
                 print("="*60 + "\n")
                 
             except queue.Empty:
@@ -549,7 +547,6 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", action="store_true", default=use_gpu_env, help="Use GPU if available (default: True)")
     parser.add_argument("--no-gpu", action="store_false", dest="gpu", help="Force CPU usage")
     
-    # Translation arguments
     # Translation arguments
     enable_translate_env = os.getenv("ENABLE_TRANSLATE", "true").lower() == "true"
     parser.add_argument("--translate", action="store_true", default=enable_translate_env, help="Enable translation (default: True)")
