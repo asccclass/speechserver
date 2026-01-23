@@ -107,7 +107,13 @@ class RealtimeSpeechTranslator:
         self.trans_manager = TranslationManager(mode=trans_mode, url=trans_url, ollama_model=ollama_model, target_lang=target_lang) if enable_translate else None
         
         # Sentence Splitter Config
-        self.use_ckip = use_ckip
+        # 若輸入音源為中文（包含繁體與簡體中文）才啟用 ckip 函數庫
+        if use_ckip and not self.source_lang.lower().startswith('zh'):
+            print(f"Source language is {self.source_lang}, disabling CKIP automatically.")
+            self.use_ckip = False
+        else:
+            self.use_ckip = use_ckip
+
         if self.use_ckip:
             print("CKIP mode enabled for sentence splitting (Chinese)")
         
